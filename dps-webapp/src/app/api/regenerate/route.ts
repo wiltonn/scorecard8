@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CommentaryStyle, SessionStatus, ReportRunStatus, ReportStatus } from '@prisma/client';
 import * as dbService from '@/lib/db-service';
 import * as fileStorage from '@/lib/file-storage';
-import { generateDepartmentAssessment } from '@/lib/ai-assessor';
+import { generateDepartmentAssessment, generateOverallScorecardAssessment } from '@/lib/ai-assessor';
 import { generateDepartmentReport } from '@/lib/docx-generator';
-import { KPIDataForReport } from '@/types';
+import { generateOverallScorecardReport } from '@/lib/overall-scorecard-generator';
+import { KPIDataForReport, OverallScoreAssessment } from '@/types';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
@@ -121,32 +122,56 @@ export async function POST(request: NextRequest) {
         try {
           await dbService.updateReportStatus(report.id, ReportStatus.GENERATING);
 
-          // Filter KPIs for this department
-          const deptKpiValues = mergedKpiValues.filter(kv => kv.departmentId === template.departmentId);
+          let assessment: any;
+          let docxBuffer: Buffer;
 
-          // Generate AI assessment
-          const assessment = await generateDepartmentAssessment(
-            du.dealer.dealerName,
-            template.department.name,
-            du.periodStart.toISOString().split('T')[0],
-            du.periodEnd.toISOString().split('T')[0],
-            deptKpiValues,
-            style,
-            useAI,
-            classLabel
-          );
+          if (template.reportCode === 'DPS-08') {
+            // Overall Scorecard: use ALL KPIs, not filtered by department
+            assessment = await generateOverallScorecardAssessment(
+              du.dealer.dealerName,
+              du.periodStart.toISOString().split('T')[0],
+              du.periodEnd.toISOString().split('T')[0],
+              mergedKpiValues,
+              style,
+              useAI,
+              classLabel
+            );
 
-          // Generate DOCX
-          const docxBuffer = await generateDepartmentReport(
-            du.dealer.dealerName,
-            du.dealer.dealerCode,
-            template.title,
-            du.periodStart.toISOString().split('T')[0],
-            du.periodEnd.toISOString().split('T')[0],
-            deptKpiValues,
-            assessment,
-            classLabel
-          );
+            docxBuffer = await generateOverallScorecardReport(
+              du.dealer.dealerName,
+              du.dealer.dealerCode,
+              template.title,
+              du.periodStart.toISOString().split('T')[0],
+              du.periodEnd.toISOString().split('T')[0],
+              assessment as OverallScoreAssessment,
+              classLabel
+            );
+          } else {
+            // Standard department report
+            const deptKpiValues = mergedKpiValues.filter(kv => kv.departmentId === template.departmentId);
+
+            assessment = await generateDepartmentAssessment(
+              du.dealer.dealerName,
+              template.department.name,
+              du.periodStart.toISOString().split('T')[0],
+              du.periodEnd.toISOString().split('T')[0],
+              deptKpiValues,
+              style,
+              useAI,
+              classLabel
+            );
+
+            docxBuffer = await generateDepartmentReport(
+              du.dealer.dealerName,
+              du.dealer.dealerCode,
+              template.title,
+              du.periodStart.toISOString().split('T')[0],
+              du.periodEnd.toISOString().split('T')[0],
+              deptKpiValues,
+              assessment,
+              classLabel
+            );
+          }
 
           // Save file
           const { filePath, fileSize } = await fileStorage.saveReportFile(

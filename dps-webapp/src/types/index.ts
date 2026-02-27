@@ -68,3 +68,32 @@ export interface KPIDataForReport {
   higherIsBetter: boolean;
   classLabel?: string;
 }
+
+export interface OverallScoreCategory {
+  category: string;
+  weight: number;
+  score: number;
+  assessmentFactors: string[];
+  scoringRationale: string;
+}
+
+export interface OverallScoreAssessment extends AIAssessment {
+  reportType: 'OVERALL_SCORECARD';
+  introductionParagraph: string;
+  overallCategories: OverallScoreCategory[];
+  overallScore: number;
+  performanceRating: string;
+  detailedScoreAnalysis: {
+    strengths: Array<{ category: string; score: number; bullets: string[] }>;
+    weaknesses: Array<{ category: string; score: number; bullets: string[] }>;
+  };
+  scoreImplications: string[];
+  pathToImprovement: {
+    scenario: string;
+    improvements: Array<{ category: string; fromScore: number; toScore: number; weightedGain: number; action: string }>;
+    resultScore: number;
+  };
+  criticalSuccessFactors: string[];
+  finalAssessmentParagraphs: string[];
+  boardActionRequired: string[];
+}

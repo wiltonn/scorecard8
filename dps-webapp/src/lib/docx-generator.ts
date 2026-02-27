@@ -552,7 +552,7 @@ function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph |
   return elements;
 }
 
-function formatValue(value: number | null | undefined, format: string): string {
+export function formatValue(value: number | null | undefined, format: string): string {
   if (value == null) return 'N/A';
 
   switch (format) {
@@ -588,7 +588,7 @@ function formatValue(value: number | null | undefined, format: string): string {
   }
 }
 
-function formatChange(value: number | null | undefined, format: string): string {
+export function formatChange(value: number | null | undefined, format: string): string {
   if (value == null) return 'N/A';
   if (format === 'CURRENCY') {
     // Currency change uses explicit +/- signs, not accounting parens
@@ -604,12 +604,12 @@ function formatChange(value: number | null | undefined, format: string): string 
   return `${sign}${formatValue(value, format)}`;
 }
 
-function formatPercent(value: number | null | undefined): string {
+export function formatPercent(value: number | null | undefined): string {
   if (value == null) return 'N/A';
   return `${(value * 100).toFixed(0)}%`;
 }
 
-function formatPercentDetailed(value: number | null | undefined): string {
+export function formatPercentDetailed(value: number | null | undefined): string {
   if (value == null) return 'N/A';
   // One decimal, but strip trailing .0: 137.0% -> 137%, 91.5% -> 91.5%
   return `${parseFloat((value * 100).toFixed(1))}%`;
@@ -624,7 +624,7 @@ function formatPercentDetailed(value: number | null | undefined): string {
  * - RATIO:      "-0.08 (-6%)"
  * - SCORE:      "-5.69 points (-6%)"
  */
-function formatYoYChange(
+export function formatYoYChange(
   absChange: number | null | undefined,
   pctChange: number | null | undefined,
   format: string
