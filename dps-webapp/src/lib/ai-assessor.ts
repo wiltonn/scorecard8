@@ -67,7 +67,7 @@ async function generateSingleKpiAssessment(
 
   const prompt = `You are a motorcycle dealership performance analyst. Write a focused assessment for a single KPI.
 
-Style: ${commentaryStyle} — ${styleGuides[commentaryStyle]}
+Style: ${commentaryStyle} \u2014 ${styleGuides[commentaryStyle]}
 
 Dealership: ${dealerName}
 Department: ${departmentName}
@@ -82,7 +82,7 @@ KPI: ${kpi.kpiName}
 - Benchmark Score: ${kpi.benchmarkScore || 'N/A'}
 - Higher is Better: ${kpi.higherIsBetter ? 'Yes' : 'No'}
 
-Write a professional assessment paragraph for this KPI. Reference the specific numbers. Compare against benchmarks. Note the YoY trend. Comment on the benchmark score. Do NOT include the KPI name as a heading — just the assessment text. Respond with ONLY the assessment text, no JSON or markup.`;
+Write a professional assessment paragraph for this KPI. Reference the specific numbers. Compare against benchmarks. Note the YoY trend. Comment on the benchmark score. Do NOT include the KPI name as a heading \u2014 just the assessment text. Respond with ONLY the assessment text, no JSON or markup.`;
 
   try {
     const response = await anthropic.messages.create({
@@ -131,7 +131,7 @@ async function generateDepartmentSummary(
 
   const prompt = `You are a motorcycle dealership performance analyst. Generate a department-level summary for the ${departmentName} department at ${dealerName} for ${periodStart} to ${periodEnd}.
 
-Style: ${commentaryStyle} — ${styleGuides[commentaryStyle]}
+Style: ${commentaryStyle} \u2014 ${styleGuides[commentaryStyle]}
 
 KPI Overview (${kpiData.length} KPIs):
 ${kpiSummaryLines}
@@ -278,13 +278,19 @@ function formatValue(value: number | null | undefined, format: string): string {
 
   switch (format) {
     case 'CURRENCY':
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      }).format(value);
     case 'PERCENTAGE':
       return `${(value * 100).toFixed(2)}%`;
     case 'RATIO':
       return value.toFixed(2);
     case 'NUMBER':
-      return new Intl.NumberFormat('en-US').format(value);
+      return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(value));
+    case 'SCORE':
+      return parseFloat(value.toFixed(1)).toString();
     default:
       return String(value);
   }

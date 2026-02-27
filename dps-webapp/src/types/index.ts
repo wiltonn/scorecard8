@@ -42,6 +42,7 @@ export interface AIAssessment {
 export interface KPIDataForReport {
   kpiCode: string;
   kpiName: string;
+  csvDescription?: string;
   dataFormat: string;
   currentValue: number;
   priorYearValue?: number | null;

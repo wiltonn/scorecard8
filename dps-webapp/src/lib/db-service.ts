@@ -15,9 +15,10 @@ export async function findOrCreateDealer(dealerCode: string, dealerName: string)
 }
 
 // UPLOAD SESSION OPERATIONS
-export async function createUploadSession(name?: string): Promise<UploadSession> {
+export async function createUploadSession(userId: string, name?: string): Promise<UploadSession> {
   return prisma.uploadSession.create({
     data: {
+      userId,
       name,
       status: SessionStatus.PENDING,
     },
@@ -162,9 +163,9 @@ export async function updateReportRunStatus(
 }
 
 // SESSION DATA LOADING
-export async function getSessionWithData(sessionId: string) {
-  return prisma.uploadSession.findUnique({
-    where: { id: sessionId },
+export async function getSessionWithData(sessionId: string, userId?: string) {
+  return prisma.uploadSession.findFirst({
+    where: { id: sessionId, ...(userId ? { userId } : {}) },
     include: {
       dealerUploads: {
         include: {
@@ -189,9 +190,11 @@ export async function getSessionWithData(sessionId: string) {
   });
 }
 
-export async function getRecentSessions(limit = 20, offset = 0) {
+export async function getRecentSessions(userId: string, limit = 20, offset = 0) {
+  const where = { userId };
   const [sessions, total] = await Promise.all([
     prisma.uploadSession.findMany({
+      where,
       include: {
         dealerUploads: {
           include: { dealer: true },
@@ -202,7 +205,7 @@ export async function getRecentSessions(limit = 20, offset = 0) {
       take: limit,
       skip: offset,
     }),
-    prisma.uploadSession.count(),
+    prisma.uploadSession.count({ where }),
   ]);
 
   return { sessions, total };
@@ -374,4 +377,40 @@ export async function getReportTemplatesByCode(reportCodes: string[]) {
     where: { reportCode: { in: reportCodes } },
     include: { department: true },
   });
+}
+
+export async function getReportWithOwnerCheck(reportId: string, userId: string) {
+  const report = await prisma.report.findUnique({
+    where: { id: reportId },
+    include: {
+      template: {
+        include: { department: true },
+      },
+      dealerUpload: {
+        include: {
+          dealer: true,
+          kpiValues: {
+            include: { kpiDefinition: true },
+          },
+        },
+      },
+      reportRun: {
+        include: {
+          uploadSession: {
+            include: {
+              benchmarkSnapshots: {
+                include: { benchmarkValues: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!report || report.reportRun.uploadSession.userId !== userId) {
+    return null;
+  }
+
+  return report;
 }

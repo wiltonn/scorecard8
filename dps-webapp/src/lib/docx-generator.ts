@@ -60,7 +60,7 @@ export async function generateDepartmentReport(
             {
               level: 0,
               format: LevelFormat.BULLET,
-              text: '•',
+              text: '\u2022',
               alignment: AlignmentType.LEFT,
               style: { paragraph: { indent: { left: 720, hanging: 360 } } },
             },
@@ -125,7 +125,7 @@ export async function generateDepartmentReport(
           new Paragraph({
             spacing: { after: 120 },
             children: [
-              new TextRun({ text: 'Dealership Name: ', bold: true }),
+              new TextRun({ text: 'Dealership: ', bold: true }),
               new TextRun(dealerName),
             ],
           }),
@@ -160,7 +160,7 @@ export async function generateDepartmentReport(
           // Detailed Performance Analysis
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
-            children: [new TextRun({ text: 'Detailed Performance Analysis', bold: true })],
+            children: [new TextRun({ text: 'Detailed KPI Analysis', bold: true })],
           }),
 
           // KPI Sections
@@ -230,7 +230,7 @@ export async function generateDepartmentReport(
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
             spacing: { before: 400 },
-            children: [new TextRun({ text: 'Critical Summary', bold: true })],
+            children: [new TextRun({ text: 'Conclusion', bold: true })],
           }),
           new Paragraph({
             spacing: { after: 400 },
@@ -270,11 +270,12 @@ function generateKPISections(
       ? getBenchmarkScoreLabel(kpi.benchmarkScore as any)
       : null;
 
-    // KPI Header
+    // KPI Header - use csvDescription (full name from CSV) if available, otherwise kpiName
+    const kpiDisplayName = kpi.csvDescription || kpi.kpiName;
     paragraphs.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: `${index + 1}. ${kpi.kpiName}`, bold: true })],
+        children: [new TextRun({ text: `${index + 1}. ${kpiDisplayName}`, bold: true })],
       })
     );
 
@@ -289,16 +290,14 @@ function generateKPISections(
       })
     );
 
-    // YoY Change
-    if (kpi.yoyChangeAbsolute != null) {
+    // YoY Change (only show if there is actual YoY data, not default zeros)
+    if (kpi.yoyChangeAbsolute != null && (kpi.yoyChangeAbsolute !== 0 || kpi.yoyChangePercent !== 0)) {
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
           children: [
             new TextRun({ text: 'Year-over-Year Change: ', bold: true }),
-            new TextRun(
-              `${formatChange(kpi.yoyChangeAbsolute, kpi.dataFormat)} (${formatPercent(kpi.yoyChangePercent)})`
-            ),
+            new TextRun(formatYoYChange(kpi.yoyChangeAbsolute, kpi.yoyChangePercent, kpi.dataFormat)),
           ],
         })
       );
@@ -306,13 +305,16 @@ function generateKPISections(
 
     // Class Average Comparison
     if (kpi.bClassAverage != null) {
+      const classPctStr = kpi.percentOfBClass != null
+        ? ` (${formatPercentDetailed(kpi.percentOfBClass)} of Class)`
+        : '';
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
           children: [
-            new TextRun({ text: `${classLabel} Average Comparison: `, bold: true }),
+            new TextRun({ text: `${classLabel} Average: `, bold: true }),
             new TextRun(
-              `${formatPercent(kpi.percentOfBClass)} of benchmark (${formatValue(kpi.bClassAverage, kpi.dataFormat)})`
+              `${formatValue(kpi.bClassAverage, kpi.dataFormat)}${classPctStr}`
             ),
           ],
         })
@@ -321,13 +323,16 @@ function generateKPISections(
 
     // National Average Comparison
     if (kpi.nationalAverage != null) {
+      const natPctStr = kpi.percentOfNational != null
+        ? ` (${formatPercentDetailed(kpi.percentOfNational)} of National)`
+        : '';
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
           children: [
-            new TextRun({ text: 'National Average Comparison: ', bold: true }),
+            new TextRun({ text: 'National Average: ', bold: true }),
             new TextRun(
-              `${formatPercent(kpi.percentOfNational)} of benchmark (${formatValue(kpi.nationalAverage, kpi.dataFormat)})`
+              `${formatValue(kpi.nationalAverage, kpi.dataFormat)}${natPctStr}`
             ),
           ],
         })
@@ -335,7 +340,7 @@ function generateKPISections(
     }
 
     // Assessment with benchmark score merged in
-    const assessmentPrefix = benchmarkLabel ? `${benchmarkLabel} — ` : '';
+    const assessmentPrefix = benchmarkLabel ? `${benchmarkLabel} \u2014 ` : '';
     paragraphs.push(
       new Paragraph({
         numbering: { reference: 'bullets', level: 0 },
@@ -356,20 +361,33 @@ function formatValue(value: number | null | undefined, format: string): string {
   if (value == null) return 'N/A';
 
   switch (format) {
-    case 'CURRENCY':
+    case 'CURRENCY': {
+      // Accounting notation: positive = $6,727,091, negative = ($82,306)
+      if (value < 0) {
+        const formatted = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        }).format(-value);
+        return `(${formatted})`;
+      }
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
         maximumFractionDigits: 0,
       }).format(value);
+    }
     case 'PERCENTAGE':
       return `${(value * 100).toFixed(2)}%`;
     case 'RATIO':
       return value.toFixed(2);
     case 'NUMBER':
-      return new Intl.NumberFormat('en-US').format(value);
+      return new Intl.NumberFormat('en-US', {
+        maximumFractionDigits: 0,
+      }).format(Math.round(value));
     case 'SCORE':
-      return value.toFixed(2);
+      // Remove unnecessary trailing zeros (87.50 -> 87.5, 90.00 -> 90)
+      return parseFloat(value.toFixed(1)).toString();
     default:
       return String(value);
   }
@@ -377,6 +395,16 @@ function formatValue(value: number | null | undefined, format: string): string {
 
 function formatChange(value: number | null | undefined, format: string): string {
   if (value == null) return 'N/A';
+  if (format === 'CURRENCY') {
+    // Currency change uses explicit +/- signs, not accounting parens
+    const sign = value >= 0 ? '+' : '-';
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(Math.abs(value));
+    return `${sign}${formatted}`;
+  }
   const sign = value >= 0 ? '+' : '';
   return `${sign}${formatValue(value, format)}`;
 }
@@ -384,4 +412,59 @@ function formatChange(value: number | null | undefined, format: string): string 
 function formatPercent(value: number | null | undefined): string {
   if (value == null) return 'N/A';
   return `${(value * 100).toFixed(0)}%`;
+}
+
+function formatPercentDetailed(value: number | null | undefined): string {
+  if (value == null) return 'N/A';
+  // One decimal, but strip trailing .0: 137.0% -> 137%, 91.5% -> 91.5%
+  return `${parseFloat((value * 100).toFixed(1))}%`;
+}
+
+/**
+ * Format YoY change with context-appropriate display.
+ * Expected formats (matching reference reports):
+ * - CURRENCY:   "+$388,048 (+3%)"
+ * - PERCENTAGE: "-0.46 percentage points (-2%)"
+ * - NUMBER:     "+2 units (+1%)"
+ * - RATIO:      "-0.08 (-6%)"
+ * - SCORE:      "-5.69 points (-6%)"
+ */
+function formatYoYChange(
+  absChange: number | null | undefined,
+  pctChange: number | null | undefined,
+  format: string
+): string {
+  if (absChange == null) return 'N/A';
+  const pctSign = pctChange != null && pctChange >= 0 ? '+' : '';
+  const pctStr = pctChange != null ? `${pctSign}${formatPercent(pctChange)}` : 'N/A';
+
+  switch (format) {
+    case 'PERCENTAGE': {
+      const ppValue = (absChange * 100).toFixed(2);
+      const sign = absChange >= 0 ? '+' : '';
+      return `${sign}${ppValue} percentage points (${pctStr})`;
+    }
+    case 'CURRENCY': {
+      const absFmt = formatChange(absChange, 'CURRENCY');
+      return `${absFmt} (${pctStr})`;
+    }
+    case 'NUMBER': {
+      const absRounded = Math.round(absChange);
+      const sign = absRounded >= 0 ? '+' : '';
+      return `${sign}${absRounded} units (${pctStr})`;
+    }
+    case 'RATIO': {
+      const sign = absChange >= 0 ? '+' : '';
+      return `${sign}${absChange.toFixed(2)} (${pctStr})`;
+    }
+    case 'SCORE': {
+      const sign = absChange >= 0 ? '+' : '';
+      const absStr = parseFloat(absChange.toFixed(2)).toString();
+      return `${sign}${absStr} points (${pctStr})`;
+    }
+    default: {
+      const sign = absChange >= 0 ? '+' : '';
+      return `${sign}${formatValue(absChange, format)} (${pctStr})`;
+    }
+  }
 }

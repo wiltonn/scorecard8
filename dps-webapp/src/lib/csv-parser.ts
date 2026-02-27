@@ -16,7 +16,7 @@ function detectColumns(headers: string[]) {
   const nationalYoYCol = headers.find(h => /^ABC[^_]*_CY_vs_LY$/.test(h));
   const nationalPctCol = headers.find(h => /^ABC[^_]*_%_of_(Class|Nat_Avg|Nat)$/i.test(h));
 
-  // Extract class label from column name: A_class_CY → "A-Class", B_Class_CY → "B-Class"
+  // Extract class label from column name: A_class_CY -> "A-Class", B_Class_CY -> "B-Class"
   let classLabel = 'B-Class';
   if (classCol) {
     const match = classCol.match(/^([A-Z])_[Cc]lass/i);
@@ -34,6 +34,28 @@ function detectColumns(headers: string[]) {
     nationalPctCol,
     classLabel,
   };
+}
+
+/**
+ * Convert short date like "25-Jan" or "25-Dec" to "January 2025" or "December 2025".
+ * Handles formats: "YY-Mon" (e.g. "25-Jan") and passes through already-formatted dates.
+ */
+function formatPeriodDate(raw: string): string {
+  if (!raw) return raw;
+  // Match pattern like "25-Jan", "25-Dec"
+  const match = raw.match(/^(\d{2})-([A-Za-z]{3})$/);
+  if (!match) return raw; // Already formatted or unknown format
+  const yearShort = parseInt(match[1], 10);
+  const monthAbbr = match[2];
+  const fullYear = yearShort >= 50 ? 1900 + yearShort : 2000 + yearShort;
+  // Parse month abbreviation to full month name
+  const monthNames: Record<string, string> = {
+    Jan: 'January', Feb: 'February', Mar: 'March', Apr: 'April',
+    May: 'May', Jun: 'June', Jul: 'July', Aug: 'August',
+    Sep: 'September', Oct: 'October', Nov: 'November', Dec: 'December',
+  };
+  const fullMonth = monthNames[monthAbbr] || monthAbbr;
+  return `${fullMonth} ${fullYear}`;
 }
 
 export function parseCSV(csvContent: string): ParsedCSVData {
@@ -79,18 +101,32 @@ export function parseCSV(csvContent: string): ParsedCSVData {
 
   // Extract dealer code (remove _CY suffix)
   const dealerCode = dealerCYColumn.replace('_CY', '').replace(/\s+/g, '');
-  const dealerName = dealerCode.replace(/_/g, ' ');
+  // Build dealer name: use dealer code directly, preserving underscores.
+  // Only append brand suffix if dealer code does not already contain it.
+  let brandSuffix = '';
+  if (columns.nationalCol) {
+    brandSuffix = columns.nationalCol.replace(/_CY$/, '');
+  }
+  let dealerName = dealerCode;
+  if (brandSuffix && !dealerCode.includes(brandSuffix)) {
+    dealerName = `${dealerCode}_${brandSuffix}`;
+  }
 
-  // Get period from first row
+  // Get period from first row and format as full month/year
   const firstRow = data[0];
-  const periodStart = firstRow['Start_Date'] || '';
-  const periodEnd = firstRow['End_Date'] || '';
+  const periodStart = formatPeriodDate(firstRow['Start_Date'] || '');
+  const periodEnd = formatPeriodDate(firstRow['End_Date'] || '');
+
+  // Detect dealer-specific YoY columns.
+  // The dealer CY column prefix (without _CY) is used to find matching _CY_vs_LY and _YoY_Change columns.
+  // Use the full dealer code prefix from the CY column name for accurate matching.
+  const dealerPrefix = dealerCYColumn.replace(/_CY$/, '');
+  const yoyAbsoluteCol = headers.find(h => h.startsWith(dealerPrefix) && h.endsWith('_CY_vs_LY'));
+  const yoyPercentCol = headers.find(h => h.startsWith(dealerPrefix) && h.endsWith('_YoY_Change'));
 
   // Parse all rows
   const rows: ParsedCSVRow[] = data.map(row => {
     const currentValue = parseFloat(row[dealerCYColumn]) || 0;
-    const yoyAbsoluteCol = headers.find(h => h.includes(dealerCode.split('_')[0]) && h.includes('CY_vs_LY'));
-    const yoyPercentCol = headers.find(h => h.includes(dealerCode.split('_')[0]) && h.includes('YoY_Change'));
 
     return {
       department: row['Department'] || '',

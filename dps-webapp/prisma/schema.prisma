@@ -123,6 +123,7 @@ enum ReportRunStatus {
 model UploadSession {
   id     String        @id @default(cuid())
   name   String?
+  userId String?
   status SessionStatus @default(PENDING)
 
   dealerUploads      DealerUpload[]
@@ -134,6 +135,7 @@ model UploadSession {
 
   @@index([status])
   @@index([createdAt])
+  @@index([userId])
 }
 
 model DealerUpload {

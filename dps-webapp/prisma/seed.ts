@@ -294,13 +294,13 @@ async function main() {
 
   // REPORT TEMPLATES
   const reportTemplates = [
-    { reportCode: 'DPS-01', reportId: 'DPS-07001-01', title: 'Detailed Financial Performance Analysis', departmentId: deptMap['OVERALL'], kpiCodes: overallKpis.map(k => k.kpiCode) },
-    { reportCode: 'DPS-02', reportId: 'DPS-07001-02', title: 'New Vehicle Sales Performance Analysis', departmentId: deptMap['NEW_VEHICLE'], kpiCodes: newVehicleKpis.map(k => k.kpiCode) },
-    { reportCode: 'DPS-03', reportId: 'DPS-07001-03', title: 'Used Vehicle Sales Performance Analysis', departmentId: deptMap['USED_VEHICLE'], kpiCodes: usedVehicleKpis.map(k => k.kpiCode) },
-    { reportCode: 'DPS-04', reportId: 'DPS-07001-04', title: 'Finance and Insurance Sales Performance Analysis', departmentId: deptMap['FI'], kpiCodes: fiKpis.map(k => k.kpiCode) },
-    { reportCode: 'DPS-05', reportId: 'DPS-07001-05', title: 'Parts and Accessories Sales Performance Analysis', departmentId: deptMap['PA'], kpiCodes: paKpis.map(k => k.kpiCode) },
-    { reportCode: 'DPS-06', reportId: 'DPS-07001-06', title: 'Apparel and Licensing Performance Analysis', departmentId: deptMap['AL'], kpiCodes: alKpis.map(k => k.kpiCode) },
-    { reportCode: 'DPS-07', reportId: 'DPS-07001-07', title: 'Service Sales Performance Analysis', departmentId: deptMap['SERVICE'], kpiCodes: serviceKpis.map(k => k.kpiCode) },
+    { reportCode: 'DPS-01', reportId: 'DPS-07001-01', title: 'Overall Dealership Financial Performance Analysis', departmentId: deptMap['OVERALL'], kpiCodes: overallKpis.map(k => k.kpiCode) },
+    { reportCode: 'DPS-02', reportId: 'DPS-07001-02', title: 'New Vehicle Sales Department Performance Analysis', departmentId: deptMap['NEW_VEHICLE'], kpiCodes: newVehicleKpis.map(k => k.kpiCode) },
+    { reportCode: 'DPS-03', reportId: 'DPS-07001-03', title: 'Used Vehicle Sales Department Performance Analysis', departmentId: deptMap['USED_VEHICLE'], kpiCodes: usedVehicleKpis.map(k => k.kpiCode) },
+    { reportCode: 'DPS-04', reportId: 'DPS-07001-04', title: 'F&I Sales Department Performance Analysis', departmentId: deptMap['FI'], kpiCodes: fiKpis.map(k => k.kpiCode) },
+    { reportCode: 'DPS-05', reportId: 'DPS-07001-05', title: 'Parts & Accessories Sales Department Performance Analysis', departmentId: deptMap['PA'], kpiCodes: paKpis.map(k => k.kpiCode) },
+    { reportCode: 'DPS-06', reportId: 'DPS-07001-06', title: 'A&L Sales Growth Department Performance Analysis', departmentId: deptMap['AL'], kpiCodes: alKpis.map(k => k.kpiCode) },
+    { reportCode: 'DPS-07', reportId: 'DPS-07001-07', title: 'Service Sales Growth Department Performance Analysis', departmentId: deptMap['SERVICE'], kpiCodes: serviceKpis.map(k => k.kpiCode) },
   ];
 
   for (const template of reportTemplates) {

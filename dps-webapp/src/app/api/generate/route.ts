@@ -7,8 +7,32 @@ import { calculateBenchmarkScore } from '@/lib/benchmark-engine';
 import { generateDepartmentAssessment } from '@/lib/ai-assessor';
 import { generateDepartmentReport } from '@/lib/docx-generator';
 import { KPIDataForReport } from '@/types';
+import { createClient } from '@/lib/supabase/server';
+
+/**
+ * Normalize a CSV description for matching purposes.
+ * Handles common variations between CSV files and seed data:
+ * - Trailing $ signs (e.g., "Net Sales $" vs "Net Sales")
+ * - ($) vs () in parenthetical dollar indicators
+ * - Multiple spaces collapsed to single space
+ * - Trailing/leading whitespace
+ * - $ within column names (e.g., "Service Sales $ Per" vs "Service Sales  Per")
+ */
+function normalizeCsvDescription(desc: string): string {
+  return desc
+    .replace(/\(\$\)/g, '()')   // ($) → ()
+    .replace(/\s*\$\s*/g, ' ')   // remove $ signs (with surrounding spaces collapsed)
+    .replace(/\s+/g, ' ')        // collapse multiple spaces
+    .trim();
+}
 
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user || authError) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let sessionId: string | null = null;
 
   try {
@@ -27,13 +51,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Create UploadSession
-    const session = await dbService.createUploadSession();
+    const session = await dbService.createUploadSession(user.id);
     sessionId = session.id;
     await dbService.updateSessionStatus(sessionId, SessionStatus.EXTRACTING);
 
     // Get all KPI definitions
     const kpiDefinitions = await dbService.getAllKpiDefinitions();
-    const kpiDefMap = new Map(kpiDefinitions.map(k => [k.csvDescription, k]));
+    // Build map with normalized keys to handle CSV variations (e.g., missing $, () vs ($), extra spaces)
+    const kpiDefMap = new Map(kpiDefinitions.map(k => [normalizeCsvDescription(k.csvDescription), k]));
 
     // Get requested templates
     const templates = await dbService.getReportTemplatesByCode(reportCodes);
@@ -89,7 +114,7 @@ export async function POST(request: NextRequest) {
         }> = [];
 
         for (const row of parsedData.rows) {
-          const kpiDef = kpiDefMap.get(row.description);
+          const kpiDef = kpiDefMap.get(normalizeCsvDescription(row.description));
           if (!kpiDef) continue;
 
           const benchmarkScore = calculateBenchmarkScore(
@@ -103,9 +128,11 @@ export async function POST(request: NextRequest) {
           const priorYearValue = row.currentValue - row.yoyChangeAbsolute;
 
           // For the report generation (merged KPI + benchmark data)
+          // Use the raw CSV description (from the actual file) as csvDescription for display
           kpiValues.push({
             kpiCode: kpiDef.kpiCode,
             kpiName: kpiDef.kpiName,
+            csvDescription: row.description.trim(),
             dataFormat: kpiDef.dataFormat,
             higherIsBetter: kpiDef.higherIsBetter,
             benchmarkMin: kpiDef.benchmarkMin,

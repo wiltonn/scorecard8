@@ -5,8 +5,15 @@ import * as fileStorage from '@/lib/file-storage';
 import { generateDepartmentAssessment } from '@/lib/ai-assessor';
 import { generateDepartmentReport } from '@/lib/docx-generator';
 import { KPIDataForReport } from '@/types';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user || authError) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { sessionId, reportCodes, commentaryStyle, useAI: useAIParam, classLabel: classLabelParam } = body as {
@@ -27,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Verify session exists and is ready
-    const session = await dbService.getSessionWithData(sessionId);
+    const session = await dbService.getSessionWithData(sessionId, user.id);
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }

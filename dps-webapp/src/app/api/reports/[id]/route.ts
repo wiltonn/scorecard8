@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbService from '@/lib/db-service';
 import * as fileStorage from '@/lib/file-storage';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user || authError) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
-    const report = await dbService.getReportWithDetails(id);
+    const report = await dbService.getReportWithOwnerCheck(id, user.id);
 
     if (!report) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 });
@@ -36,9 +43,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user || authError) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
-    const report = await dbService.getReportWithDetails(id);
+    const report = await dbService.getReportWithOwnerCheck(id, user.id);
 
     if (!report || !report.documentPath) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 });
