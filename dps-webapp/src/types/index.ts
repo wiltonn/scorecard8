@@ -18,6 +18,7 @@ export interface ParsedCSVData {
   periodStart: string;
   periodEnd: string;
   rows: ParsedCSVRow[];
+  classLabel: string;
 }
 
 export interface AIAssessment {
@@ -35,6 +36,7 @@ export interface AIAssessment {
     longTerm: string[];
   };
   criticalSummary: string;
+  performanceScoreAssessment?: string;
 }
 
 export interface KPIDataForReport {
@@ -55,4 +57,5 @@ export interface KPIDataForReport {
   benchmarkMin?: number | null;
   benchmarkMax?: number | null;
   higherIsBetter: boolean;
+  classLabel?: string;
 }

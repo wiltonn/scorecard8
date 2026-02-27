@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       periodStart: string;
       periodEnd: string;
       kpiValues: KPIDataForReport[];
+      classLabel: string;
     }> = [];
 
     for (const file of files) {
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
           periodStart: parsedData.periodStart,
           periodEnd: parsedData.periodEnd,
           kpiValues: kpiValuesWithDept as any,
+          classLabel: parsedData.classLabel,
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown extraction error';
@@ -227,7 +229,8 @@ export async function POST(request: NextRequest) {
             dd.periodEnd,
             deptKpiValues,
             commentaryStyle,
-            useAI
+            useAI,
+            dd.classLabel
           );
 
           // Generate DOCX
@@ -238,7 +241,8 @@ export async function POST(request: NextRequest) {
             dd.periodStart,
             dd.periodEnd,
             deptKpiValues,
-            assessment
+            assessment,
+            dd.classLabel
           );
 
           // Save file

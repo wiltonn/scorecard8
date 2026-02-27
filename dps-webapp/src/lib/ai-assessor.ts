@@ -12,11 +12,12 @@ export async function generateDepartmentAssessment(
   periodEnd: string,
   kpiData: KPIDataForReport[],
   commentaryStyle: CommentaryStyle,
-  useAI = false
+  useAI = false,
+  classLabel: string = 'B-Class'
 ): Promise<AIAssessment> {
 
   if (!useAI || !process.env.ANTHROPIC_API_KEY) {
-    return generatePlaceholderAssessment(dealerName, departmentName, kpiData);
+    return generatePlaceholderAssessment(dealerName, departmentName, kpiData, classLabel);
   }
 
   const Anthropic = (await import('@anthropic-ai/sdk')).default;
@@ -25,13 +26,13 @@ export async function generateDepartmentAssessment(
   // Phase 1: Generate an individual AI assessment for each KPI (parallel)
   const kpiAssessments = await Promise.all(
     kpiData.map(kpi =>
-      generateSingleKpiAssessment(anthropic, dealerName, departmentName, periodStart, periodEnd, kpi, commentaryStyle)
+      generateSingleKpiAssessment(anthropic, dealerName, departmentName, periodStart, periodEnd, kpi, commentaryStyle, classLabel)
     )
   );
 
   // Phase 2: Generate department-level summary from all the KPI data + assessments
   const summary = await generateDepartmentSummary(
-    anthropic, dealerName, departmentName, periodStart, periodEnd, kpiData, kpiAssessments, commentaryStyle
+    anthropic, dealerName, departmentName, periodStart, periodEnd, kpiData, kpiAssessments, commentaryStyle, classLabel
   );
 
   return {
@@ -49,7 +50,8 @@ async function generateSingleKpiAssessment(
   periodStart: string,
   periodEnd: string,
   kpi: KPIDataForReport,
-  commentaryStyle: CommentaryStyle
+  commentaryStyle: CommentaryStyle,
+  classLabel: string = 'B-Class'
 ): Promise<{ kpiCode: string; assessment: string }> {
   const styleGuides: Record<CommentaryStyle, string> = {
     EXECUTIVE: 'Be concise. 2-3 sentences.',
@@ -59,7 +61,7 @@ async function generateSingleKpiAssessment(
     DIRECT: 'Be factual and numbers-forward. 2-4 sentences.',
   };
 
-  const pctOfBClass = kpi.percentOfBClass ? `${(kpi.percentOfBClass * 100).toFixed(0)}% of B-Class` : 'N/A';
+  const pctOfBClass = kpi.percentOfBClass ? `${(kpi.percentOfBClass * 100).toFixed(0)}% of ${classLabel}` : 'N/A';
   const pctOfNat = kpi.percentOfNational ? `${(kpi.percentOfNational * 100).toFixed(0)}% of National` : 'N/A';
   const yoyChange = kpi.yoyChangePercent ? `${(kpi.yoyChangePercent * 100).toFixed(1)}% YoY` : 'N/A';
 
@@ -75,7 +77,7 @@ KPI: ${kpi.kpiName}
 - Current Value: ${formatValue(kpi.currentValue, kpi.dataFormat)}
 - Prior Year Value: ${kpi.priorYearValue != null ? formatValue(kpi.priorYearValue, kpi.dataFormat) : 'N/A'}
 - YoY Change: ${yoyChange}
-- B-Class Average: ${formatValue(kpi.bClassAverage, kpi.dataFormat)} (${pctOfBClass})
+- ${classLabel} Average: ${formatValue(kpi.bClassAverage, kpi.dataFormat)} (${pctOfBClass})
 - National Average: ${formatValue(kpi.nationalAverage, kpi.dataFormat)} (${pctOfNat})
 - Benchmark Score: ${kpi.benchmarkScore || 'N/A'}
 - Higher is Better: ${kpi.higherIsBetter ? 'Yes' : 'No'}
@@ -111,7 +113,8 @@ async function generateDepartmentSummary(
   periodEnd: string,
   kpiData: KPIDataForReport[],
   kpiAssessments: Array<{ kpiCode: string; assessment: string }>,
-  commentaryStyle: CommentaryStyle
+  commentaryStyle: CommentaryStyle,
+  classLabel: string = 'B-Class'
 ): Promise<Omit<AIAssessment, 'kpiAssessments'>> {
   const styleGuides: Record<CommentaryStyle, string> = {
     EXECUTIVE: 'Be concise and high-level. Keep each section to 50-75 words.',
@@ -144,10 +147,11 @@ Respond with valid JSON matching this exact structure:
     "shortTerm": ["action 1", "action 2"],
     "longTerm": ["action 1", "action 2"]
   },
-  "criticalSummary": "Bold summary paragraph highlighting the most important takeaways"
+  "criticalSummary": "Bold summary paragraph highlighting the most important takeaways",
+  "performanceScoreAssessment": "A paragraph summarizing the overall performance scores across all KPIs, noting how many scored Exceptional/Strong/Moderate/Substandard/Weak, and what the scores indicate about overall ${classLabel} and national benchmark positioning"
 }
 
-Reference specific KPI names and benchmark scores. Provide actionable recommendations.`;
+Reference specific KPI names and benchmark scores. Use "${classLabel}" when referring to the volume class benchmark. Provide actionable recommendations.`;
 
   try {
     const response = await anthropic.messages.create({
@@ -173,18 +177,19 @@ Reference specific KPI names and benchmark scores. Provide actionable recommenda
 function generatePlaceholderAssessment(
   dealerName: string,
   departmentName: string,
-  kpiData: KPIDataForReport[]
+  kpiData: KPIDataForReport[],
+  classLabel: string = 'B-Class'
 ): AIAssessment {
   return {
-    ...buildPlaceholderSummary(dealerName, departmentName),
+    ...buildPlaceholderSummary(dealerName, departmentName, classLabel),
     kpiAssessments: kpiData.map(kpi => ({
       kpiCode: kpi.kpiCode,
-      assessment: buildPlaceholderKpiAssessment(kpi),
+      assessment: buildPlaceholderKpiAssessment(kpi, classLabel),
     })),
   };
 }
 
-function buildPlaceholderKpiAssessment(kpi: KPIDataForReport): string {
+function buildPlaceholderKpiAssessment(kpi: KPIDataForReport, classLabel: string = 'B-Class'): string {
   const currentFormatted = formatValue(kpi.currentValue, kpi.dataFormat);
   const parts: string[] = [];
 
@@ -203,11 +208,11 @@ function buildPlaceholderKpiAssessment(kpi: KPIDataForReport): string {
   if (kpi.percentOfBClass) {
     const pct = (kpi.percentOfBClass * 100).toFixed(0);
     if (kpi.percentOfBClass >= 1.1) {
-      parts.push(`At ${pct}% of the B-Class average, this metric significantly exceeds the volume class benchmark.`);
+      parts.push(`At ${pct}% of the ${classLabel} average, this metric significantly exceeds the volume class benchmark.`);
     } else if (kpi.percentOfBClass >= 0.95) {
-      parts.push(`At ${pct}% of the B-Class average, this metric is tracking in line with the volume class benchmark.`);
+      parts.push(`At ${pct}% of the ${classLabel} average, this metric is tracking in line with the volume class benchmark.`);
     } else {
-      parts.push(`At ${pct}% of the B-Class average, this metric is below the volume class benchmark and warrants attention.`);
+      parts.push(`At ${pct}% of the ${classLabel} average, this metric is below the volume class benchmark and warrants attention.`);
     }
   }
 
@@ -231,10 +236,11 @@ function buildPlaceholderKpiAssessment(kpi: KPIDataForReport): string {
 
 function buildPlaceholderSummary(
   dealerName: string,
-  departmentName: string
+  departmentName: string,
+  classLabel: string = 'B-Class'
 ): Omit<AIAssessment, 'kpiAssessments'> {
   return {
-    executiveSummary: `This report provides a comprehensive analysis of ${departmentName} performance for ${dealerName}. The assessment is based on current period data compared against B-Class averages and national benchmarks.`,
+    executiveSummary: `This report provides a comprehensive analysis of ${departmentName} performance for ${dealerName}. The assessment is based on current period data compared against ${classLabel} averages and national benchmarks.`,
     departmentContext: `The ${departmentName} department plays a critical role in overall dealership profitability and customer satisfaction.`,
     strengths: [
       'Data-driven performance tracking in place',
@@ -249,7 +255,7 @@ function buildPlaceholderSummary(
     recommendations: {
       immediate: [
         'Review KPIs marked as Substandard or Weak',
-        'Compare against B-Class top performers',
+        `Compare against ${classLabel} top performers`,
       ],
       shortTerm: [
         'Develop action plans for underperforming areas',
@@ -261,6 +267,7 @@ function buildPlaceholderSummary(
       ],
     },
     criticalSummary: `This ${departmentName} report provides benchmark scores and comparisons for ${dealerName}. Enable AI-generated commentary for detailed, personalized analysis and recommendations.`,
+    performanceScoreAssessment: `Performance scores are based on ${classLabel} and national benchmark comparisons. Enable AI-generated commentary for a detailed performance score assessment.`,
   };
 }
 
@@ -308,5 +315,6 @@ function parseSummaryResponse(text: string): Omit<AIAssessment, 'kpiAssessments'
       longTerm: parsed.recommendations?.longTerm || [],
     },
     criticalSummary: parsed.criticalSummary || '',
+    performanceScoreAssessment: parsed.performanceScoreAssessment || '',
   };
 }

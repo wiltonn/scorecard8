@@ -21,7 +21,8 @@ export async function generateDepartmentReport(
   periodStart: string,
   periodEnd: string,
   kpiData: KPIDataForReport[],
-  assessment: AIAssessment
+  assessment: AIAssessment,
+  classLabel: string = 'B-Class'
 ): Promise<Buffer> {
   const doc = new Document({
     styles: {
@@ -163,7 +164,19 @@ export async function generateDepartmentReport(
           }),
 
           // KPI Sections
-          ...generateKPISections(kpiData, assessment),
+          ...generateKPISections(kpiData, assessment, classLabel),
+
+          // Performance Score Assessment
+          ...(assessment.performanceScoreAssessment ? [
+            new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun({ text: 'Performance Score Assessment', bold: true })],
+            }),
+            new Paragraph({
+              spacing: { after: 200 },
+              children: [new TextRun(assessment.performanceScoreAssessment)],
+            }),
+          ] : []),
 
           // Page break before recommendations
           new Paragraph({ children: [new PageBreak()] }),
@@ -245,13 +258,17 @@ export async function generateDepartmentReport(
 
 function generateKPISections(
   kpiData: KPIDataForReport[],
-  assessment: AIAssessment
+  assessment: AIAssessment,
+  classLabel: string = 'B-Class'
 ): Paragraph[] {
   const paragraphs: Paragraph[] = [];
 
   kpiData.forEach((kpi, index) => {
     const kpiAssessment = assessment.kpiAssessments.find(a => a.kpiCode === kpi.kpiCode);
     const assessmentText = kpiAssessment?.assessment || 'Assessment not available.';
+    const benchmarkLabel = kpi.benchmarkScore && kpi.benchmarkScore !== 'NA'
+      ? getBenchmarkScoreLabel(kpi.benchmarkScore as any)
+      : null;
 
     // KPI Header
     paragraphs.push(
@@ -261,12 +278,12 @@ function generateKPISections(
       })
     );
 
-    // Current Value
+    // Current Year
     paragraphs.push(
       new Paragraph({
         numbering: { reference: 'bullets', level: 0 },
         children: [
-          new TextRun({ text: 'Current Value: ', bold: true }),
+          new TextRun({ text: 'Current Year: ', bold: true }),
           new TextRun(formatValue(kpi.currentValue, kpi.dataFormat)),
         ],
       })
@@ -287,56 +304,45 @@ function generateKPISections(
       );
     }
 
-    // B-Class Comparison
+    // Class Average Comparison
     if (kpi.bClassAverage != null) {
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
           children: [
-            new TextRun({ text: 'B-Class Average: ', bold: true }),
+            new TextRun({ text: `${classLabel} Average Comparison: `, bold: true }),
             new TextRun(
-              `${formatValue(kpi.bClassAverage, kpi.dataFormat)} (dealership at ${formatPercent(kpi.percentOfBClass)} of class)`
+              `${formatPercent(kpi.percentOfBClass)} of benchmark (${formatValue(kpi.bClassAverage, kpi.dataFormat)})`
             ),
           ],
         })
       );
     }
 
-    // National Comparison
+    // National Average Comparison
     if (kpi.nationalAverage != null) {
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
           children: [
-            new TextRun({ text: 'National Average: ', bold: true }),
+            new TextRun({ text: 'National Average Comparison: ', bold: true }),
             new TextRun(
-              `${formatValue(kpi.nationalAverage, kpi.dataFormat)} (dealership at ${formatPercent(kpi.percentOfNational)} of national)`
+              `${formatPercent(kpi.percentOfNational)} of benchmark (${formatValue(kpi.nationalAverage, kpi.dataFormat)})`
             ),
           ],
         })
       );
     }
 
-    // Benchmark Score
-    if (kpi.benchmarkScore && kpi.benchmarkScore !== 'NA') {
-      paragraphs.push(
-        new Paragraph({
-          numbering: { reference: 'bullets', level: 0 },
-          children: [
-            new TextRun({ text: 'Benchmark Assessment: ', bold: true }),
-            new TextRun(getBenchmarkScoreLabel(kpi.benchmarkScore as any)),
-          ],
-        })
-      );
-    }
-
-    // Assessment
+    // Assessment with benchmark score merged in
+    const assessmentPrefix = benchmarkLabel ? `${benchmarkLabel} — ` : '';
     paragraphs.push(
       new Paragraph({
         numbering: { reference: 'bullets', level: 0 },
         spacing: { after: 300 },
         children: [
           new TextRun({ text: 'Assessment: ', bold: true }),
+          ...(benchmarkLabel ? [new TextRun({ text: assessmentPrefix, bold: true })] : []),
           new TextRun(assessmentText),
         ],
       })

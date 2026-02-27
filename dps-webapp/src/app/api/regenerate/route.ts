@@ -9,13 +9,15 @@ import { KPIDataForReport } from '@/types';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, reportCodes, commentaryStyle, useAI: useAIParam } = body as {
+    const { sessionId, reportCodes, commentaryStyle, useAI: useAIParam, classLabel: classLabelParam } = body as {
       sessionId: string;
       reportCodes: string[];
       commentaryStyle: CommentaryStyle;
       useAI?: boolean;
+      classLabel?: string;
     };
     const useAI = useAIParam === true;
+    const classLabel = classLabelParam || 'B-Class';
 
     if (!sessionId) {
       return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
@@ -123,7 +125,8 @@ export async function POST(request: NextRequest) {
             du.periodEnd.toISOString().split('T')[0],
             deptKpiValues,
             style,
-            useAI
+            useAI,
+            classLabel
           );
 
           // Generate DOCX
@@ -134,7 +137,8 @@ export async function POST(request: NextRequest) {
             du.periodStart.toISOString().split('T')[0],
             du.periodEnd.toISOString().split('T')[0],
             deptKpiValues,
-            assessment
+            assessment,
+            classLabel
           );
 
           // Save file
