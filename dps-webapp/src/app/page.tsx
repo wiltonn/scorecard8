@@ -41,8 +41,9 @@ export default function Home() {
     fetch('/api/templates')
       .then(res => res.json())
       .then(data => {
-        setTemplates(data.templates);
-        setSelectedReports(data.templates.map((t: ReportTemplate) => t.reportCode));
+        const templates = data.templates || [];
+        setTemplates(templates);
+        setSelectedReports(templates.map((t: ReportTemplate) => t.reportCode));
         setAiAvailable(data.aiAvailable === true);
       })
       .catch(err => console.error('Failed to load templates:', err));
@@ -133,11 +134,16 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <h1 className="text-3xl font-bold text-center mb-8">
-          Dealer Performance Scorecard Generator
-        </h1>
+    <main className="min-h-screen bg-[var(--secondary)] py-10">
+      <div className="max-w-[1080px] w-[90%] mx-auto">
+        <div className="mb-8">
+          <h1 className="text-[30px] font-semibold text-[var(--foreground)]">
+            Scorecard Generator
+          </h1>
+          <p className="text-[var(--muted-foreground)] mt-1">
+            Upload dealer CSV files, select reports, and generate performance scorecards.
+          </p>
+        </div>
 
         {/* Multi-File Upload */}
         <FileUploadZone
@@ -147,26 +153,26 @@ export default function Home() {
         />
 
         {/* Report Selection */}
-        <Card className="mb-6">
+        <Card className="mb-5 rg-card">
           <CardHeader>
-            <CardTitle>Select Reports to Generate</CardTitle>
+            <CardTitle className="text-[18px]">Select Reports</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {templates.map(template => (
                 <label
                   key={template.reportCode}
-                  className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                  className="flex items-center gap-3 px-3 py-2.5 border border-[var(--border)] rounded cursor-pointer hover:bg-[var(--accent)] rg-transition"
                 >
                   <input
                     type="checkbox"
                     checked={selectedReports.includes(template.reportCode)}
                     onChange={() => toggleReport(template.reportCode)}
-                    className="h-4 w-4"
+                    className="h-4 w-4 accent-[#2ea3f2]"
                   />
                   <div>
-                    <p className="font-medium">{template.department}</p>
-                    <p className="text-sm text-gray-500">{template.reportCode}</p>
+                    <p className="font-medium text-sm text-[var(--foreground)]">{template.department}</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">{template.reportCode}</p>
                   </div>
                 </label>
               ))}
@@ -175,11 +181,11 @@ export default function Home() {
         </Card>
 
         {/* Commentary Style & AI Assessment */}
-        <Card className="mb-6">
+        <Card className="mb-5 rg-card">
           <CardHeader>
-            <CardTitle>Commentary Style</CardTitle>
+            <CardTitle className="text-[18px]">Commentary Style</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <Select value={commentaryStyle} onValueChange={setCommentaryStyle}>
               <SelectTrigger>
                 <SelectValue />
@@ -194,8 +200,8 @@ export default function Home() {
             </Select>
 
             <label
-              className={`flex items-center gap-3 p-3 border rounded-lg ${
-                aiAvailable ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+              className={`flex items-center gap-3 px-3 py-2.5 border border-[var(--border)] rounded rg-transition ${
+                aiAvailable ? 'cursor-pointer hover:bg-[var(--accent)]' : 'opacity-50 cursor-not-allowed'
               }`}
             >
               <input
@@ -203,12 +209,12 @@ export default function Home() {
                 checked={useAI}
                 onChange={(e) => setUseAI(e.target.checked)}
                 disabled={!aiAvailable}
-                className="h-4 w-4"
+                className="h-4 w-4 accent-[#2ea3f2]"
               />
-              <Sparkles className="h-4 w-4 shrink-0" />
+              <Sparkles className="h-4 w-4 shrink-0 text-[#2ea3f2]" />
               <div>
-                <p className="font-medium text-sm">AI-Generated Assessment</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-medium text-sm text-[var(--foreground)]">AI-Generated Assessment</p>
+                <p className="text-xs text-[var(--muted-foreground)]">
                   {aiAvailable
                     ? 'Use Claude to generate detailed, personalized commentary'
                     : 'Unavailable — configure ANTHROPIC_API_KEY to enable'}
@@ -220,7 +226,7 @@ export default function Home() {
 
         {/* Error Alert */}
         {error && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-5">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -229,7 +235,7 @@ export default function Home() {
         <Button
           onClick={handleGenerate}
           disabled={files.length === 0 || selectedReports.length === 0 || isGenerating}
-          className="w-full mb-6"
+          className="w-full mb-5 h-11 text-base font-medium rg-transition"
           size="lg"
         >
           {isGenerating ? (
@@ -244,10 +250,10 @@ export default function Home() {
 
         {/* Progress */}
         {isGenerating && (
-          <Card className="mb-6">
+          <Card className="mb-5 rg-card">
             <CardContent className="pt-6">
               <Progress value={progress} className="mb-2" />
-              <p className="text-sm text-center text-gray-500">
+              <p className="text-sm text-center text-[var(--muted-foreground)]">
                 {progressMessage}
               </p>
             </CardContent>
@@ -256,7 +262,7 @@ export default function Home() {
 
         {/* Results — Grouped by Dealer */}
         {dealerResults.length > 0 && (
-          <div className="mb-6">
+          <div className="mb-5">
             <DealerResults dealers={dealerResults} onDownload={handleDownload} />
           </div>
         )}

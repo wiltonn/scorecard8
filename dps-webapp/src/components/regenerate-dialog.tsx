@@ -95,7 +95,7 @@ export function RegenerateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Regenerate Reports</DialogTitle>
+          <DialogTitle className="text-[18px]">Regenerate Reports</DialogTitle>
           <DialogDescription>
             Generate new reports from existing KPI data with different settings.
           </DialogDescription>
@@ -103,7 +103,7 @@ export function RegenerateDialog({
 
         <div className="space-y-4 py-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">Commentary Style</label>
+            <label className="text-sm font-medium mb-2 block text-[var(--foreground)]">Commentary Style</label>
             <Select value={commentaryStyle} onValueChange={setCommentaryStyle}>
               <SelectTrigger>
                 <SelectValue />
@@ -119,8 +119,8 @@ export function RegenerateDialog({
           </div>
 
           <label
-            className={`flex items-center gap-3 p-3 border rounded-lg ${
-              aiAvailable ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+            className={`flex items-center gap-3 px-3 py-2.5 border border-[var(--border)] rounded rg-transition ${
+              aiAvailable ? 'cursor-pointer hover:bg-[var(--accent)]' : 'opacity-50 cursor-not-allowed'
             }`}
           >
             <input
@@ -128,12 +128,12 @@ export function RegenerateDialog({
               checked={useAI}
               onChange={(e) => setUseAI(e.target.checked)}
               disabled={!aiAvailable}
-              className="h-4 w-4"
+              className="h-4 w-4 accent-[#2ea3f2]"
             />
-            <Sparkles className="h-4 w-4 shrink-0" />
+            <Sparkles className="h-4 w-4 shrink-0 text-[#2ea3f2]" />
             <div>
-              <p className="font-medium text-sm">AI-Generated Assessment</p>
-              <p className="text-xs text-gray-500">
+              <p className="font-medium text-sm text-[var(--foreground)]">AI-Generated Assessment</p>
+              <p className="text-xs text-[var(--muted-foreground)]">
                 {aiAvailable
                   ? 'Use Claude for personalized commentary'
                   : 'Unavailable — configure ANTHROPIC_API_KEY'}
@@ -142,27 +142,27 @@ export function RegenerateDialog({
           </label>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Reports to Generate</label>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <label className="text-sm font-medium mb-2 block text-[var(--foreground)]">Reports to Generate</label>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
               {templates.map(template => (
                 <label
                   key={template.reportCode}
-                  className="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50"
+                  className="flex items-center gap-2 px-2.5 py-2 border border-[var(--border)] rounded cursor-pointer hover:bg-[var(--accent)] rg-transition"
                 >
                   <input
                     type="checkbox"
                     checked={selectedReports.includes(template.reportCode)}
                     onChange={() => toggleReport(template.reportCode)}
-                    className="h-4 w-4"
+                    className="h-4 w-4 accent-[#2ea3f2]"
                   />
-                  <span className="text-sm">{template.department}</span>
+                  <span className="text-sm text-[var(--foreground)]">{template.department}</span>
                 </label>
               ))}
             </div>
           </div>
 
           {error && (
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-sm text-[var(--destructive)]">{error}</p>
           )}
         </div>
 

@@ -36,15 +36,15 @@ export function SessionHistory({ onRegenerate, refreshTrigger }: SessionHistoryP
 
   if (loading) {
     return (
-      <Card className="mt-6">
+      <Card className="mt-5 rg-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-[18px]">
+            <History className="h-5 w-5 text-[#2ea3f2]" />
             Session History
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
         </CardContent>
       </Card>
     );
@@ -53,25 +53,25 @@ export function SessionHistory({ onRegenerate, refreshTrigger }: SessionHistoryP
   if (sessions.length === 0) return null;
 
   return (
-    <Card className="mt-6">
+    <Card className="mt-5 rg-card">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History className="h-5 w-5" />
+        <CardTitle className="flex items-center gap-2 text-[18px]">
+          <History className="h-5 w-5 text-[#2ea3f2]" />
           Session History
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {sessions.map(session => (
             <div
               key={session.sessionId}
-              className="flex items-center justify-between p-3 border rounded-lg"
+              className="flex items-center justify-between px-3 py-2.5 border border-[var(--border)] rounded rg-transition hover:shadow-sm"
             >
               <div className="min-w-0">
-                <p className="font-medium truncate">
+                <p className="font-medium text-sm truncate text-[var(--foreground)]">
                   {session.dealers.join(', ') || 'No dealers'}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-[var(--muted-foreground)]">
                   {session.periodStart && session.periodEnd
                     ? `${new Date(session.periodStart).toLocaleDateString()} - ${new Date(session.periodEnd).toLocaleDateString()}`
                     : 'Unknown period'}
@@ -86,6 +86,7 @@ export function SessionHistory({ onRegenerate, refreshTrigger }: SessionHistoryP
                 size="sm"
                 onClick={() => onRegenerate(session.sessionId)}
                 disabled={session.status !== 'READY' && session.status !== 'COMPLETED'}
+                className="rg-transition"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Regenerate

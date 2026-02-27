@@ -36,11 +36,11 @@ export function DealerResults({ dealers, onDownload }: DealerResultsProps) {
   if (dealers.length === 1) {
     const dealer = dealers[0];
     return (
-      <Card>
+      <Card className="rg-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-[18px]">
             Generated Reports — {dealer.dealerName}
-            <Badge variant="secondary">{completedCount(dealer)}/{dealer.reports.length}</Badge>
+            <Badge variant="secondary" className="text-xs">{completedCount(dealer)}/{dealer.reports.length}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -52,9 +52,9 @@ export function DealerResults({ dealers, onDownload }: DealerResultsProps) {
 
   // Multiple dealers — tabbed layout
   return (
-    <Card>
+    <Card className="rg-card">
       <CardHeader>
-        <CardTitle>Generated Reports</CardTitle>
+        <CardTitle className="text-[18px]">Generated Reports</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue={dealers[0].dealerCode}>
@@ -70,7 +70,7 @@ export function DealerResults({ dealers, onDownload }: DealerResultsProps) {
           </TabsList>
           {dealers.map(d => (
             <TabsContent key={d.dealerCode} value={d.dealerCode}>
-              <p className="text-sm text-gray-500 mb-3">
+              <p className="text-sm text-[var(--muted-foreground)] mb-3">
                 Period: {d.periodStart} to {d.periodEnd}
               </p>
               <ReportList reports={d.reports} onDownload={onDownload} />
@@ -90,21 +90,21 @@ function ReportList({
   onDownload: (reportId: string) => void;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {reports.map(report => (
         <div
           key={report.reportId}
-          className="flex items-center justify-between p-3 border rounded-lg"
+          className="flex items-center justify-between px-3 py-2.5 border border-[var(--border)] rounded rg-transition hover:shadow-sm"
         >
           <div className="flex items-center gap-3">
             {report.status === 'completed' ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <CheckCircle className="h-5 w-5 text-[#4caf50]" />
             ) : (
-              <XCircle className="h-5 w-5 text-red-500" />
+              <XCircle className="h-5 w-5 text-[var(--destructive)]" />
             )}
             <div>
-              <p className="font-medium">{report.title}</p>
-              <p className="text-sm text-gray-500">{report.reportCode}</p>
+              <p className="font-medium text-sm text-[var(--foreground)]">{report.title}</p>
+              <p className="text-xs text-[var(--muted-foreground)]">{report.reportCode}</p>
             </div>
           </div>
           {report.status === 'completed' ? (
@@ -112,12 +112,13 @@ function ReportList({
               variant="outline"
               size="sm"
               onClick={() => onDownload(report.reportId)}
+              className="rg-transition"
             >
               <Download className="h-4 w-4 mr-2" />
               Download
             </Button>
           ) : (
-            <span className="text-sm text-red-500">{report.error}</span>
+            <span className="text-sm text-[var(--destructive)]">{report.error}</span>
           )}
         </div>
       ))}
