@@ -10,8 +10,14 @@ import {
   Footer,
   PageNumber,
   LevelFormat,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  ShadingType,
+  BorderStyle,
 } from 'docx';
-import { AIAssessment, KPIDataForReport } from '@/types';
+import { AIAssessment, KPIDataForReport, PerformanceScoreCategory } from '@/types';
 import { getBenchmarkScoreLabel } from './benchmark-engine';
 
 export async function generateDepartmentReport(
@@ -167,16 +173,7 @@ export async function generateDepartmentReport(
           ...generateKPISections(kpiData, assessment, classLabel),
 
           // Performance Score Assessment
-          ...(assessment.performanceScoreAssessment ? [
-            new Paragraph({
-              heading: HeadingLevel.HEADING_1,
-              children: [new TextRun({ text: 'Performance Score Assessment', bold: true })],
-            }),
-            new Paragraph({
-              spacing: { after: 200 },
-              children: [new TextRun(assessment.performanceScoreAssessment)],
-            }),
-          ] : []),
+          ...generatePerformanceScoreSection(assessment),
 
           // Page break before recommendations
           new Paragraph({ children: [new PageBreak()] }),
@@ -355,6 +352,204 @@ function generateKPISections(
   });
 
   return paragraphs;
+}
+
+function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph | Table)[] {
+  const elements: (Paragraph | Table)[] = [];
+  const categories = assessment.performanceScoreCategories;
+
+  if (!categories || categories.length === 0) {
+    // Fallback: render as plain text if no structured data
+    if (assessment.performanceScoreAssessment) {
+      elements.push(
+        new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          children: [new TextRun({ text: 'Performance Score Assessment', bold: true })],
+        }),
+        new Paragraph({
+          spacing: { after: 200 },
+          children: [new TextRun(assessment.performanceScoreAssessment)],
+        }),
+      );
+    }
+    return elements;
+  }
+
+  // Section heading
+  elements.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      children: [new TextRun({ text: 'Performance Score Assessment', bold: true })],
+    }),
+  );
+
+  // Numbered subsections for each category
+  categories.forEach((cat, idx) => {
+    elements.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        children: [new TextRun({ text: `${idx + 1}. ${cat.category} (${cat.weight}% weight)`, bold: true })],
+      }),
+    );
+
+    // Score line
+    elements.push(
+      new Paragraph({
+        spacing: { after: 100 },
+        children: [new TextRun({ text: `Score: ${cat.score}/100`, bold: true })],
+      }),
+    );
+
+    // Bullet points
+    cat.bullets.forEach((bullet, bulletIdx) => {
+      elements.push(
+        new Paragraph({
+          numbering: { reference: 'bullets', level: 0 },
+          spacing: bulletIdx === cat.bullets.length - 1 ? { after: 200 } : undefined,
+          children: [new TextRun(bullet)],
+        }),
+      );
+    });
+  });
+
+  // Performance Score Summary heading
+  elements.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 300 },
+      children: [new TextRun({ text: 'Performance Score Summary', bold: true })],
+    }),
+  );
+
+  // Build the summary table
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const borders = { top: border, bottom: border, left: border, right: border };
+  const headerShading = { fill: '1F4E79', type: ShadingType.CLEAR };
+  const altRowShading = { fill: 'F2F2F2', type: ShadingType.CLEAR };
+  const colWidths = [3600, 1800, 1800, 2160];
+  const cellMargins = { top: 80, bottom: 80, left: 120, right: 120 };
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: ['Performance Category', 'Weight', 'Score', 'Weighted Score'].map((text, i) =>
+      new TableCell({
+        borders,
+        width: { size: colWidths[i], type: WidthType.DXA },
+        shading: headerShading,
+        margins: cellMargins,
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text, bold: true, color: 'FFFFFF' })],
+        })],
+      }),
+    ),
+  });
+
+  const dataRows = categories.map((cat, idx) => {
+    const weightedScore = (cat.weight / 100 * cat.score).toFixed(2);
+    const rowShading = idx % 2 === 1 ? altRowShading : undefined;
+
+    return new TableRow({
+      children: [
+        new TableCell({
+          borders,
+          width: { size: colWidths[0], type: WidthType.DXA },
+          shading: rowShading,
+          margins: cellMargins,
+          children: [new Paragraph({ children: [new TextRun(cat.category)] })],
+        }),
+        new TableCell({
+          borders,
+          width: { size: colWidths[1], type: WidthType.DXA },
+          shading: rowShading,
+          margins: cellMargins,
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun(`${cat.weight}%`)],
+          })],
+        }),
+        new TableCell({
+          borders,
+          width: { size: colWidths[2], type: WidthType.DXA },
+          shading: rowShading,
+          margins: cellMargins,
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun(String(cat.score))],
+          })],
+        }),
+        new TableCell({
+          borders,
+          width: { size: colWidths[3], type: WidthType.DXA },
+          shading: rowShading,
+          margins: cellMargins,
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun(weightedScore)],
+          })],
+        }),
+      ],
+    });
+  });
+
+  // Totals row
+  const totalWeightedScore = categories
+    .reduce((sum, cat) => sum + (cat.weight / 100 * cat.score), 0)
+    .toFixed(2);
+
+  const totalsRow = new TableRow({
+    children: [
+      new TableCell({
+        borders,
+        width: { size: colWidths[0], type: WidthType.DXA },
+        shading: headerShading,
+        margins: cellMargins,
+        children: [new Paragraph({
+          children: [new TextRun({ text: 'TOTAL', bold: true, color: 'FFFFFF' })],
+        })],
+      }),
+      new TableCell({
+        borders,
+        width: { size: colWidths[1], type: WidthType.DXA },
+        shading: headerShading,
+        margins: cellMargins,
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: '100%', bold: true, color: 'FFFFFF' })],
+        })],
+      }),
+      new TableCell({
+        borders,
+        width: { size: colWidths[2], type: WidthType.DXA },
+        shading: headerShading,
+        margins: cellMargins,
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: '-', bold: true, color: 'FFFFFF' })],
+        })],
+      }),
+      new TableCell({
+        borders,
+        width: { size: colWidths[3], type: WidthType.DXA },
+        shading: headerShading,
+        margins: cellMargins,
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: totalWeightedScore, bold: true, color: 'FFFFFF' })],
+        })],
+      }),
+    ],
+  });
+
+  elements.push(
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: colWidths,
+      rows: [headerRow, ...dataRows, totalsRow],
+    }),
+  );
+
+  return elements;
 }
 
 function formatValue(value: number | null | undefined, format: string): string {

@@ -148,8 +148,23 @@ Respond with valid JSON matching this exact structure:
     "longTerm": ["action 1", "action 2"]
   },
   "criticalSummary": "Bold summary paragraph highlighting the most important takeaways",
-  "performanceScoreAssessment": "A paragraph summarizing the overall performance scores across all KPIs, noting how many scored Exceptional/Strong/Moderate/Substandard/Weak, and what the scores indicate about overall ${classLabel} and national benchmark positioning"
+  "performanceScoreAssessment": "A paragraph summarizing the overall performance scores across all KPIs, noting how many scored Exceptional/Strong/Moderate/Substandard/Weak, and what the scores indicate about overall ${classLabel} and national benchmark positioning",
+  "performanceScoreCategories": [
+    {
+      "category": "Short category name (e.g. Sales Performance, Gross Profit Performance, Cost Management, Market Position/Growth, Operational Efficiency)",
+      "weight": 30,
+      "score": 80,
+      "bullets": ["Key finding 1 referencing specific data", "Key finding 2"]
+    }
+  ]
 }
+
+IMPORTANT for performanceScoreCategories:
+- Create exactly 5 performance categories that cover the KPIs analyzed
+- Weights must sum to 100 (typically: 30, 25, 20, 15, 10)
+- Scores are 0-100 based on the benchmark data
+- Each category should have 2-3 bullet points summarizing key findings
+- Category names should be concise (e.g. "Sales Performance", "Gross Profit Performance", "Cost Management", "Market Position/Growth", "Operational Efficiency")
 
 Reference specific KPI names and benchmark scores. Use "${classLabel}" when referring to the volume class benchmark. Provide actionable recommendations.`;
 
@@ -268,6 +283,13 @@ function buildPlaceholderSummary(
     },
     criticalSummary: `This ${departmentName} report provides benchmark scores and comparisons for ${dealerName}. Enable AI-generated commentary for detailed, personalized analysis and recommendations.`,
     performanceScoreAssessment: `Performance scores are based on ${classLabel} and national benchmark comparisons. Enable AI-generated commentary for a detailed performance score assessment.`,
+    performanceScoreCategories: [
+      { category: 'Sales Performance', weight: 30, score: 70, bullets: ['Data-driven performance tracking in place', 'Enable AI for detailed analysis'] },
+      { category: 'Gross Profit Performance', weight: 25, score: 70, bullets: ['Comprehensive KPI monitoring', 'Enable AI for detailed analysis'] },
+      { category: 'Cost Management', weight: 20, score: 70, bullets: ['Regular benchmark comparisons', 'Enable AI for detailed analysis'] },
+      { category: 'Market Position/Growth', weight: 15, score: 70, bullets: ['Industry standard tracking', 'Enable AI for detailed analysis'] },
+      { category: 'Operational Efficiency', weight: 10, score: 70, bullets: ['Balanced operations monitoring', 'Enable AI for detailed analysis'] },
+    ],
   };
 }
 
@@ -322,5 +344,13 @@ function parseSummaryResponse(text: string): Omit<AIAssessment, 'kpiAssessments'
     },
     criticalSummary: parsed.criticalSummary || '',
     performanceScoreAssessment: parsed.performanceScoreAssessment || '',
+    performanceScoreCategories: Array.isArray(parsed.performanceScoreCategories)
+      ? parsed.performanceScoreCategories.map((cat: any) => ({
+          category: cat.category || '',
+          weight: Number(cat.weight) || 0,
+          score: Number(cat.score) || 0,
+          bullets: Array.isArray(cat.bullets) ? cat.bullets : [],
+        }))
+      : undefined,
   };
 }

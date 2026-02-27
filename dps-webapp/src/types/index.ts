@@ -21,6 +21,13 @@ export interface ParsedCSVData {
   classLabel: string;
 }
 
+export interface PerformanceScoreCategory {
+  category: string;
+  weight: number;
+  score: number;
+  bullets: string[];
+}
+
 export interface AIAssessment {
   executiveSummary: string;
   departmentContext?: string;
@@ -37,6 +44,7 @@ export interface AIAssessment {
   };
   criticalSummary: string;
   performanceScoreAssessment?: string;
+  performanceScoreCategories?: PerformanceScoreCategory[];
 }
 
 export interface KPIDataForReport {
