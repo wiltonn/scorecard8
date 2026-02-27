@@ -23,6 +23,7 @@ export async function GET() {
       aiAvailable: isAIAvailable(),
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 });
+    console.error('Templates API error:', error);
+    return NextResponse.json({ error: 'Failed to fetch templates', details: String(error) }, { status: 500 });
   }
 }

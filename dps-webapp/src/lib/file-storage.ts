@@ -1,11 +1,15 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+const BUCKET = 'generated-reports';
 
-const STORAGE_PATH = process.env.REPORT_STORAGE_PATH || './generated-reports';
-
-export async function ensureStorageDir(): Promise<void> {
-  await fs.mkdir(STORAGE_PATH, { recursive: true });
-}
+const s3 = new S3Client({
+  forcePathStyle: true,
+  region: 'us-east-1',
+  endpoint: process.env.SUPABASE_S3_ENDPOINT || 'https://jipsjajtalixgugdgqro.storage.supabase.co/storage/v1/s3',
+  credentials: {
+    accessKeyId: process.env.SUPABASE_S3_KEY_ID || '',
+    secretAccessKey: process.env.SUPABASE_S3_SECRET || '',
+  },
+});
 
 export async function saveReportFile(
   dealerCode: string,
@@ -13,35 +17,44 @@ export async function saveReportFile(
   periodEnd: Date,
   buffer: Buffer
 ): Promise<{ filePath: string; fileSize: number }> {
-  await ensureStorageDir();
-
-  const dealerDir = path.join(STORAGE_PATH, dealerCode);
-  await fs.mkdir(dealerDir, { recursive: true });
-
-  const periodStr = periodEnd.toLocaleDateString('en-US', { 
-    month: 'short', 
-    year: 'numeric' 
+  const periodStr = periodEnd.toLocaleDateString('en-US', {
+    month: 'short',
+    year: 'numeric',
   }).replace(' ', '');
-  
+
   const timestamp = Date.now();
   const filename = `${reportId}_${dealerCode}_R12_${periodStr}_${timestamp}.docx`;
-  const filePath = path.join(dealerDir, filename);
+  const key = `${dealerCode}/${filename}`;
 
-  await fs.writeFile(filePath, buffer);
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  }));
 
   return {
-    filePath,
+    filePath: key,
     fileSize: buffer.length,
   };
 }
 
 export async function getReportFile(filePath: string): Promise<Buffer> {
-  return fs.readFile(filePath);
+  const response = await s3.send(new GetObjectCommand({
+    Bucket: BUCKET,
+    Key: filePath,
+  }));
+
+  const bytes = await response.Body!.transformToByteArray();
+  return Buffer.from(bytes);
 }
 
 export async function deleteReportFile(filePath: string): Promise<void> {
   try {
-    await fs.unlink(filePath);
+    await s3.send(new DeleteObjectCommand({
+      Bucket: BUCKET,
+      Key: filePath,
+    }));
   } catch (error) {
     console.warn(`Failed to delete file: ${filePath}`);
   }
