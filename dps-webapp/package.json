@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "fuser -k 3000/tcp 2>/dev/null; rm -f .next/dev/lock; next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint"
   },
