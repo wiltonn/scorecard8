@@ -302,7 +302,8 @@ export async function POST(request: NextRequest) {
           // Save file
           const { filePath, fileSize } = await fileStorage.saveReportFile(
             dd.dealerCode,
-            template.reportId,
+            dd.dealerName,
+            template.title,
             new Date(dd.periodEnd),
             docxBuffer
           );

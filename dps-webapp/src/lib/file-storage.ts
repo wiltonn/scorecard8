@@ -13,7 +13,8 @@ const s3 = new S3Client({
 
 export async function saveReportFile(
   dealerCode: string,
-  reportId: string,
+  dealerName: string,
+  reportName: string,
   periodEnd: Date,
   buffer: Buffer
 ): Promise<{ filePath: string; fileSize: number }> {
@@ -22,8 +23,10 @@ export async function saveReportFile(
     year: 'numeric',
   }).replace(' ', '');
 
+  const safeDealerName = dealerName.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_');
+  const safeReportName = reportName.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_');
   const timestamp = Date.now();
-  const filename = `${reportId}_${dealerCode}_R12_${periodStr}_${timestamp}.docx`;
+  const filename = `RG_${safeReportName}_${safeDealerName}_${dealerCode}_R12_${periodStr}_${timestamp}.docx`;
   const key = `${dealerCode}/${filename}`;
 
   await s3.send(new PutObjectCommand({

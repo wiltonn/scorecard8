@@ -176,7 +176,8 @@ export async function POST(request: NextRequest) {
           // Save file
           const { filePath, fileSize } = await fileStorage.saveReportFile(
             du.dealer.dealerCode,
-            template.reportId,
+            du.dealer.dealerName,
+            template.title,
             du.periodEnd,
             docxBuffer
           );
