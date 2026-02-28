@@ -4,10 +4,10 @@ import * as dbService from '@/lib/db-service';
 import * as fileStorage from '@/lib/file-storage';
 import { parseCSV } from '@/lib/csv-parser';
 import { calculateBenchmarkScore } from '@/lib/benchmark-engine';
-import { generateDepartmentAssessment, generateOverallScorecardAssessment } from '@/lib/ai-assessor';
+import { generateDepartmentAssessment, generateOverallScorecardAssessment, generateOverallScorecardFromDepartments } from '@/lib/ai-assessor';
 import { generateDepartmentReport } from '@/lib/docx-generator';
 import { generateOverallScorecardReport } from '@/lib/overall-scorecard-generator';
-import { KPIDataForReport, OverallScoreAssessment } from '@/types';
+import { DepartmentalAssessmentInput, KPIDataForReport, OverallScoreAssessment } from '@/types';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -238,7 +238,17 @@ export async function POST(request: NextRequest) {
         error?: string;
       }> = [];
 
-      for (const template of templates) {
+      // Sort templates so DPS-08 is processed last (after departmental reports)
+      const sortedTemplates = [...templates].sort((a, b) => {
+        if (a.reportCode === 'DPS-08') return 1;
+        if (b.reportCode === 'DPS-08') return -1;
+        return 0;
+      });
+
+      // Accumulate departmental assessments as DPS-01-07 complete
+      const deptAssessments = new Map<string, DepartmentalAssessmentInput>();
+
+      for (const template of sortedTemplates) {
         const report = await dbService.createReport(reportRun.id, dd.dealerUploadId, template.id);
 
         try {
@@ -248,18 +258,30 @@ export async function POST(request: NextRequest) {
           let docxBuffer: Buffer;
 
           if (template.reportCode === 'DPS-08') {
-            // Overall Scorecard: use ALL KPIs, not filtered by department
-            const allKpiValues = dd.kpiValues as KPIDataForReport[];
-
-            assessment = await generateOverallScorecardAssessment(
-              dd.dealerName,
-              dd.periodStart,
-              dd.periodEnd,
-              allKpiValues,
-              commentaryStyle,
-              useAI,
-              dd.classLabel
-            );
+            // Overall Scorecard: synthesize from departmental assessments if available
+            if (deptAssessments.size > 0) {
+              assessment = await generateOverallScorecardFromDepartments(
+                dd.dealerName,
+                dd.periodStart,
+                dd.periodEnd,
+                Array.from(deptAssessments.values()),
+                commentaryStyle,
+                useAI,
+                dd.classLabel
+              );
+            } else {
+              // Fallback to legacy approach if no departmental data
+              const allKpiValues = dd.kpiValues as KPIDataForReport[];
+              assessment = await generateOverallScorecardAssessment(
+                dd.dealerName,
+                dd.periodStart,
+                dd.periodEnd,
+                allKpiValues,
+                commentaryStyle,
+                useAI,
+                dd.classLabel
+              );
+            }
 
             docxBuffer = await generateOverallScorecardReport(
               dd.dealerName,
@@ -286,6 +308,13 @@ export async function POST(request: NextRequest) {
               useAI,
               dd.classLabel
             );
+
+            // Store departmental assessment for DPS-08 synthesis
+            deptAssessments.set(template.reportCode, {
+              reportCode: template.reportCode,
+              departmentName: template.department.name,
+              assessment,
+            });
 
             docxBuffer = await generateDepartmentReport(
               dd.dealerName,

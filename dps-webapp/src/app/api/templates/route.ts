@@ -18,7 +18,7 @@ export async function GET() {
         reportCode: t.reportCode,
         reportId: t.reportId,
         title: t.title,
-        department: t.department.name,
+        department: t.reportCode === 'DPS-08' ? t.title : t.department.name,
       })),
       aiAvailable: isAIAvailable(),
     });

@@ -1,4 +1,4 @@
-import { AIAssessment, KPIDataForReport, OverallScoreAssessment } from '@/types';
+import { AIAssessment, DepartmentalAssessmentInput, KPIDataForReport, OverallScoreAssessment } from '@/types';
 import { CommentaryStyle } from '@prisma/client';
 
 export function isAIAvailable(): boolean {
@@ -435,6 +435,282 @@ IMPORTANT:
   }
 
   return generatePlaceholderOverallAssessment(dealerName, kpiData, classLabel);
+}
+
+// --- Overall Scorecard from Departmental Assessments (Synthesis) ---
+
+export async function generateOverallScorecardFromDepartments(
+  dealerName: string,
+  periodStart: string,
+  periodEnd: string,
+  departmentalAssessments: DepartmentalAssessmentInput[],
+  commentaryStyle: CommentaryStyle,
+  useAI = false,
+  classLabel: string = 'B-Class'
+): Promise<OverallScoreAssessment> {
+  if (!useAI || !process.env.ANTHROPIC_API_KEY) {
+    return generatePlaceholderOverallFromDepartments(dealerName, departmentalAssessments, classLabel);
+  }
+
+  const Anthropic = (await import('@anthropic-ai/sdk')).default;
+  const anthropic = new Anthropic();
+
+  const styleGuides: Record<CommentaryStyle, string> = {
+    EXECUTIVE: 'Be concise and high-level. Keep sections to 50-75 words.',
+    STANDARD: 'Provide balanced detail. Keep sections to 100-150 words.',
+    DETAILED: 'Provide comprehensive analysis. Keep sections to 200-300 words.',
+    COACHING: 'Be supportive and developmental. Keep sections to 150-200 words.',
+    DIRECT: 'Be factual and numbers-forward. Keep sections to 75-100 words.',
+  };
+
+  const deptSummaries = departmentalAssessments.map(da => {
+    const a = da.assessment;
+    const scoreCategories = a.performanceScoreCategories || [];
+    const avgScore = scoreCategories.length > 0
+      ? scoreCategories.reduce((sum, c) => sum + (c.weight / 100 * c.score), 0)
+      : 0;
+
+    return `## ${da.departmentName} (${da.reportCode})
+Executive Summary: ${a.executiveSummary}
+Department Context: ${a.departmentContext || 'N/A'}
+Weighted Performance Score: ${avgScore.toFixed(1)}/100
+Strengths: ${a.strengths.join('; ')}
+Weaknesses: ${a.weaknesses.join('; ')}
+Immediate Recommendations: ${a.recommendations.immediate.join('; ')}
+Short-Term Recommendations: ${a.recommendations.shortTerm.join('; ')}
+Long-Term Recommendations: ${a.recommendations.longTerm.join('; ')}
+Critical Summary: ${a.criticalSummary}
+Performance Categories: ${scoreCategories.map(c => `${c.category}: ${c.score}/100 (${c.weight}%)`).join(', ')}`;
+  }).join('\n\n');
+
+  const includedDepts = departmentalAssessments.map(da => da.departmentName).join(', ');
+
+  const prompt = `You are a motorcycle dealership performance analyst. Generate a comprehensive OVERALL DEALERSHIP PERFORMANCE SCORECARD for ${dealerName} for the period ${periodStart} to ${periodEnd}.
+
+Style: ${commentaryStyle} — ${styleGuides[commentaryStyle]}
+
+This report SYNTHESIZES findings from ${departmentalAssessments.length} departmental performance reports into a holistic dealership assessment. Your job is to identify cross-departmental patterns, aggregate performance insights, and provide a unified strategic assessment.
+
+Departments included: ${includedDepts}
+
+=== DEPARTMENTAL ASSESSMENT SUMMARIES ===
+${deptSummaries}
+=== END DEPARTMENTAL SUMMARIES ===
+
+Evaluate across these 5 weighted categories by synthesizing the departmental findings above:
+1. Financial Performance (30% weight) - Overall profitability, margins, ROA, net income across all departments
+2. Departmental Performance (25% weight) - Individual department contributions and relative efficiency
+3. Cost Management (20% weight) - Expense control, wages, advertising costs across departments
+4. Market Position/Growth (15% weight) - Market share, brand contribution, competitive standing
+5. Operational Efficiency (10% weight) - Absorption, service metrics, inventory management
+
+Respond with valid JSON matching this exact structure:
+{
+  "reportType": "OVERALL_SCORECARD",
+  "executiveSummary": "2-3 sentence overview synthesizing cross-departmental findings",
+  "introductionParagraph": "Detailed introduction paragraph setting the context, noting this assessment synthesizes ${departmentalAssessments.length} departmental reports",
+  "overallCategories": [
+    {
+      "category": "Financial Performance",
+      "weight": 30,
+      "score": 45,
+      "assessmentFactors": ["Labeled Factor: explanation referencing departmental findings...", "Another Factor: explanation..."],
+      "scoringRationale": "Paragraph explaining the score, referencing specific departmental results"
+    }
+  ],
+  "overallScore": 42.5,
+  "performanceRating": "NEEDS IMMEDIATE IMPROVEMENT",
+  "detailedScoreAnalysis": {
+    "strengths": [
+      { "category": "Category Name", "score": 65, "bullets": ["Cross-departmental strength 1", "Cross-departmental strength 2"] }
+    ],
+    "weaknesses": [
+      { "category": "Category Name", "score": 30, "bullets": ["Cross-departmental weakness 1", "Cross-departmental weakness 2"] }
+    ]
+  },
+  "scoreImplications": ["Implication 1 referencing departmental patterns", "Implication 2"],
+  "pathToImprovement": {
+    "scenario": "Description of the improvement scenario based on departmental findings",
+    "improvements": [
+      { "category": "Financial Performance", "fromScore": 35, "toScore": 55, "weightedGain": 6.0, "action": "Specific action referencing departmental recommendations" }
+    ],
+    "resultScore": 58.5
+  },
+  "criticalSuccessFactors": ["Factor 1", "Factor 2", "Factor 3"],
+  "finalAssessmentParagraphs": ["Bold concluding paragraph 1", "Bold concluding paragraph 2"],
+  "boardActionRequired": ["Urgent action item 1", "Urgent action item 2", "Urgent action item 3"],
+  "strengths": ["Overall strength 1 drawn from departmental findings", "Overall strength 2"],
+  "weaknesses": ["Overall weakness 1 drawn from departmental findings", "Overall weakness 2"],
+  "recommendations": {
+    "immediate": ["Action 1 synthesized from departments", "Action 2"],
+    "shortTerm": ["Action 1", "Action 2"],
+    "longTerm": ["Action 1", "Action 2"]
+  },
+  "criticalSummary": "Bold summary paragraph synthesizing all departmental findings",
+  "kpiAssessments": []
+}
+
+IMPORTANT:
+- overallCategories must have exactly 5 categories with weights 30, 25, 20, 15, 10
+- overallScore should be the weighted total of all category scores
+- performanceRating should be one of: "EXCEPTIONAL PERFORMANCE", "STRONG PERFORMANCE", "MODERATE PERFORMANCE", "NEEDS IMPROVEMENT", "NEEDS IMMEDIATE IMPROVEMENT"
+- Each assessmentFactors entry should be a labeled bullet like "Factor Name: explanation..."
+- Reference specific departmental findings, strengths, and weaknesses throughout
+- Identify cross-departmental patterns and themes
+- boardActionRequired should synthesize the most urgent items across all departments
+- pathToImprovement should show realistic scenario referencing departmental recommendations
+- Use "${classLabel}" when referring to volume class benchmarks`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8192,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const content = response.content[0];
+    if (content.type === 'text') {
+      return parseOverallScorecardResponse(content.text, dealerName, [], classLabel);
+    }
+  } catch (error) {
+    console.error('AI overall scorecard synthesis failed:', error);
+  }
+
+  return generatePlaceholderOverallFromDepartments(dealerName, departmentalAssessments, classLabel);
+}
+
+function generatePlaceholderOverallFromDepartments(
+  dealerName: string,
+  departmentalAssessments: DepartmentalAssessmentInput[],
+  classLabel: string = 'B-Class'
+): OverallScoreAssessment {
+  // Aggregate departmental scores via weighted averages
+  const categoryScoreMap = new Map<string, { totalWeightedScore: number; totalWeight: number }>();
+
+  for (const da of departmentalAssessments) {
+    const cats = da.assessment.performanceScoreCategories || [];
+    for (const cat of cats) {
+      const existing = categoryScoreMap.get(cat.category) || { totalWeightedScore: 0, totalWeight: 0 };
+      existing.totalWeightedScore += cat.score * cat.weight;
+      existing.totalWeight += cat.weight;
+      categoryScoreMap.set(cat.category, existing);
+    }
+  }
+
+  // Map to the 5 overall categories using averaged departmental scores
+  const overallCategoryNames = [
+    { category: 'Financial Performance', weight: 30 },
+    { category: 'Departmental Performance', weight: 25 },
+    { category: 'Cost Management', weight: 20 },
+    { category: 'Market Position/Growth', weight: 15 },
+    { category: 'Operational Efficiency', weight: 10 },
+  ];
+
+  // Compute an average across all departmental category scores as a baseline
+  let globalAvg = 50;
+  if (categoryScoreMap.size > 0) {
+    let totalScore = 0;
+    let count = 0;
+    for (const [, v] of categoryScoreMap) {
+      totalScore += v.totalWeightedScore / v.totalWeight;
+      count++;
+    }
+    globalAvg = totalScore / count;
+  }
+
+  // Try to match category names, fallback to global average
+  const categories = overallCategoryNames.map(oc => {
+    // Look for matching or similar category in departmental data
+    const match = categoryScoreMap.get(oc.category)
+      || categoryScoreMap.get(oc.category.replace('/Growth', ''))
+      || categoryScoreMap.get(oc.category + '/Growth');
+    const score = match ? Math.round(match.totalWeightedScore / match.totalWeight) : Math.round(globalAvg);
+    return { ...oc, score };
+  });
+
+  const overallScore = categories.reduce((sum, cat) => sum + (cat.weight / 100 * cat.score), 0);
+
+  // Collect all strengths and weaknesses from departments
+  const allStrengths = departmentalAssessments.flatMap(da =>
+    da.assessment.strengths.map(s => `${da.departmentName}: ${s}`)
+  );
+  const allWeaknesses = departmentalAssessments.flatMap(da =>
+    da.assessment.weaknesses.map(w => `${da.departmentName}: ${w}`)
+  );
+  const allImmediateRecs = departmentalAssessments.flatMap(da =>
+    da.assessment.recommendations.immediate.map(r => `${da.departmentName}: ${r}`)
+  );
+  const allShortTermRecs = departmentalAssessments.flatMap(da =>
+    da.assessment.recommendations.shortTerm.map(r => `${da.departmentName}: ${r}`)
+  );
+  const allLongTermRecs = departmentalAssessments.flatMap(da =>
+    da.assessment.recommendations.longTerm.map(r => `${da.departmentName}: ${r}`)
+  );
+
+  const deptNames = departmentalAssessments.map(da => da.departmentName).join(', ');
+
+  return {
+    reportType: 'OVERALL_SCORECARD',
+    executiveSummary: `This overall scorecard synthesizes findings from ${departmentalAssessments.length} departmental performance reports for ${dealerName}. The assessment aggregates performance data from: ${deptNames}, evaluated against ${classLabel} averages and national benchmarks.`,
+    introductionParagraph: `This Overall Dealership Performance Scorecard synthesizes the detailed assessments from ${departmentalAssessments.length} departmental reports for ${dealerName}. Rather than re-analyzing raw KPI data, this report draws on the completed departmental analyses to identify cross-departmental patterns, aggregate performance insights, and provide a unified strategic assessment. Enable AI-generated commentary for detailed, personalized cross-departmental analysis.`,
+    overallCategories: categories.map(cat => ({
+      ...cat,
+      assessmentFactors: [
+        `Synthesized from ${departmentalAssessments.length} departmental assessments`,
+        `Enable AI commentary for detailed ${cat.category.toLowerCase()} assessment`,
+      ],
+      scoringRationale: `${cat.category} score of ${cat.score}/100 is aggregated from departmental performance scores across ${deptNames}. Enable AI-generated commentary for a detailed scoring rationale.`,
+    })),
+    overallScore: parseFloat(overallScore.toFixed(2)),
+    performanceRating: overallScore >= 80 ? 'STRONG PERFORMANCE' : overallScore >= 60 ? 'MODERATE PERFORMANCE' : overallScore >= 40 ? 'NEEDS IMPROVEMENT' : 'NEEDS IMMEDIATE IMPROVEMENT',
+    detailedScoreAnalysis: {
+      strengths: categories.filter(c => c.score >= 60).map(c => ({
+        category: c.category,
+        score: c.score,
+        bullets: allStrengths.slice(0, 3),
+      })),
+      weaknesses: categories.filter(c => c.score < 50).map(c => ({
+        category: c.category,
+        score: c.score,
+        bullets: allWeaknesses.slice(0, 3),
+      })),
+    },
+    scoreImplications: [
+      `Overall weighted score of ${overallScore.toFixed(1)}/100 synthesized from ${departmentalAssessments.length} departmental reports`,
+      'Enable AI commentary for specific cross-departmental score implications',
+      `Performance benchmarked against ${classLabel} averages and national standards`,
+    ],
+    pathToImprovement: {
+      scenario: `Targeted improvement across key categories could significantly improve the overall score. Based on ${departmentalAssessments.length} departmental analyses.`,
+      improvements: categories.map(cat => ({
+        category: cat.category,
+        fromScore: cat.score,
+        toScore: Math.min(cat.score + 15, 100),
+        weightedGain: parseFloat(((15 * cat.weight) / 100).toFixed(1)),
+        action: `Implement targeted improvements in ${cat.category.toLowerCase()}`,
+      })),
+      resultScore: parseFloat((overallScore + 15).toFixed(2)),
+    },
+    criticalSuccessFactors: [
+      'Enable AI-generated commentary for personalized critical success factors',
+      ...allImmediateRecs.slice(0, 2),
+    ],
+    finalAssessmentParagraphs: [
+      `This assessment synthesizes ${departmentalAssessments.length} departmental performance reports for ${dealerName}. Enable AI-generated commentary for detailed, personalized cross-departmental analysis and strategic recommendations.`,
+    ],
+    boardActionRequired: allImmediateRecs.slice(0, 3).length > 0
+      ? allImmediateRecs.slice(0, 3)
+      : ['Review comprehensive KPI performance data across all departments'],
+    strengths: allStrengths.slice(0, 4),
+    weaknesses: allWeaknesses.slice(0, 4),
+    recommendations: {
+      immediate: allImmediateRecs.slice(0, 4),
+      shortTerm: allShortTermRecs.slice(0, 4),
+      longTerm: allLongTermRecs.slice(0, 4),
+    },
+    criticalSummary: `This overall performance scorecard synthesizes ${departmentalAssessments.length} departmental analyses for ${dealerName}. Enable AI-generated commentary for detailed, personalized cross-departmental analysis.`,
+    kpiAssessments: [],
+  };
 }
 
 function parseOverallScorecardResponse(

@@ -364,6 +364,41 @@ export async function getReportHistory(options: {
   return { reports, total };
 }
 
+// DEPARTMENTAL ASSESSMENTS (for DPS-08 synthesis)
+export async function getDepartmentalAssessments(dealerUploadId: string) {
+  const reports = await prisma.report.findMany({
+    where: {
+      dealerUploadId,
+      status: ReportStatus.COMPLETED,
+      template: {
+        reportCode: { in: ['DPS-01', 'DPS-02', 'DPS-03', 'DPS-04', 'DPS-05', 'DPS-06', 'DPS-07'] },
+      },
+    },
+    include: {
+      template: {
+        include: { department: true },
+      },
+    },
+    orderBy: { generatedAt: 'desc' },
+  });
+
+  // Deduplicate: keep only the latest report per template code
+  const seen = new Set<string>();
+  const unique: typeof reports = [];
+  for (const r of reports) {
+    if (!seen.has(r.template.reportCode)) {
+      seen.add(r.template.reportCode);
+      unique.push(r);
+    }
+  }
+
+  return unique.map(r => ({
+    reportCode: r.template.reportCode,
+    departmentName: r.template.department.name,
+    assessment: r.aiAssessment as any,
+  }));
+}
+
 // TEMPLATES
 export async function getReportTemplates() {
   return prisma.reportTemplate.findMany({

@@ -301,7 +301,7 @@ async function main() {
     { reportCode: 'DPS-05', reportId: 'DPS-07001-05', title: 'Parts & Accessories Sales Department Performance Analysis', departmentId: deptMap['PA'], kpiCodes: paKpis.map(k => k.kpiCode) },
     { reportCode: 'DPS-06', reportId: 'DPS-07001-06', title: 'A&L Sales Growth Department Performance Analysis', departmentId: deptMap['AL'], kpiCodes: alKpis.map(k => k.kpiCode) },
     { reportCode: 'DPS-07', reportId: 'DPS-07001-07', title: 'Service Sales Growth Department Performance Analysis', departmentId: deptMap['SERVICE'], kpiCodes: serviceKpis.map(k => k.kpiCode) },
-    { reportCode: 'DPS-08', reportId: 'DPS-07001-08', title: 'Overall Dealership Performance Assessment and Scoring', departmentId: deptMap['OVERALL'], kpiCodes: [] },
+    { reportCode: 'DPS-08', reportId: 'DPS-07001-08', title: 'Overall Dealership Performance SCORE', departmentId: deptMap['OVERALL'], kpiCodes: [] },
   ];
 
   for (const template of reportTemplates) {

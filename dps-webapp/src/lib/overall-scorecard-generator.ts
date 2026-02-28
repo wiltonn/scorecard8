@@ -172,7 +172,7 @@ export async function generateOverallScorecardReport(
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 60 },
-            children: [new TextRun({ text: 'Overall Dealership Performance Assessment and Scoring', size: 22, color: '555555' })],
+            children: [new TextRun({ text: 'Overall Dealership Performance SCORE', size: 22, color: '555555' })],
           }),
           new Paragraph({
             alignment: AlignmentType.CENTER,

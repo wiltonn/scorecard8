@@ -47,6 +47,12 @@ export interface AIAssessment {
   performanceScoreCategories?: PerformanceScoreCategory[];
 }
 
+export interface DepartmentalAssessmentInput {
+  reportCode: string;       // 'DPS-01' .. 'DPS-07'
+  departmentName: string;   // e.g. 'New Vehicle Sales'
+  assessment: AIAssessment; // The stored aiAssessment JSON
+}
+
 export interface KPIDataForReport {
   kpiCode: string;
   kpiName: string;

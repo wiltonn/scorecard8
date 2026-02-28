@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CommentaryStyle, SessionStatus, ReportRunStatus, ReportStatus } from '@prisma/client';
 import * as dbService from '@/lib/db-service';
 import * as fileStorage from '@/lib/file-storage';
-import { generateDepartmentAssessment, generateOverallScorecardAssessment } from '@/lib/ai-assessor';
+import { generateDepartmentAssessment, generateOverallScorecardAssessment, generateOverallScorecardFromDepartments } from '@/lib/ai-assessor';
 import { generateDepartmentReport } from '@/lib/docx-generator';
 import { generateOverallScorecardReport } from '@/lib/overall-scorecard-generator';
-import { KPIDataForReport, OverallScoreAssessment } from '@/types';
+import { DepartmentalAssessmentInput, KPIDataForReport, OverallScoreAssessment } from '@/types';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
@@ -116,7 +116,23 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      for (const template of templates) {
+      // Sort templates so DPS-08 is processed last
+      const sortedTemplates = [...templates].sort((a, b) => {
+        if (a.reportCode === 'DPS-08') return 1;
+        if (b.reportCode === 'DPS-08') return -1;
+        return 0;
+      });
+
+      // Pre-load existing departmental assessments from DB
+      const existingDeptAssessments = await dbService.getDepartmentalAssessments(du.id);
+      const deptAssessments = new Map<string, DepartmentalAssessmentInput>();
+      for (const da of existingDeptAssessments) {
+        if (da.assessment) {
+          deptAssessments.set(da.reportCode, da);
+        }
+      }
+
+      for (const template of sortedTemplates) {
         const report = await dbService.createReport(reportRun.id, du.id, template.id);
 
         try {
@@ -126,16 +142,29 @@ export async function POST(request: NextRequest) {
           let docxBuffer: Buffer;
 
           if (template.reportCode === 'DPS-08') {
-            // Overall Scorecard: use ALL KPIs, not filtered by department
-            assessment = await generateOverallScorecardAssessment(
-              du.dealer.dealerName,
-              du.periodStart.toISOString().split('T')[0],
-              du.periodEnd.toISOString().split('T')[0],
-              mergedKpiValues,
-              style,
-              useAI,
-              classLabel
-            );
+            // Overall Scorecard: synthesize from departmental assessments if available
+            if (deptAssessments.size > 0) {
+              assessment = await generateOverallScorecardFromDepartments(
+                du.dealer.dealerName,
+                du.periodStart.toISOString().split('T')[0],
+                du.periodEnd.toISOString().split('T')[0],
+                Array.from(deptAssessments.values()),
+                style,
+                useAI,
+                classLabel
+              );
+            } else {
+              // Fallback to legacy approach if no departmental data
+              assessment = await generateOverallScorecardAssessment(
+                du.dealer.dealerName,
+                du.periodStart.toISOString().split('T')[0],
+                du.periodEnd.toISOString().split('T')[0],
+                mergedKpiValues,
+                style,
+                useAI,
+                classLabel
+              );
+            }
 
             docxBuffer = await generateOverallScorecardReport(
               du.dealer.dealerName,
@@ -160,6 +189,13 @@ export async function POST(request: NextRequest) {
               useAI,
               classLabel
             );
+
+            // Overwrite pre-loaded assessment with freshly generated one
+            deptAssessments.set(template.reportCode, {
+              reportCode: template.reportCode,
+              departmentName: template.department.name,
+              assessment,
+            });
 
             docxBuffer = await generateDepartmentReport(
               du.dealer.dealerName,

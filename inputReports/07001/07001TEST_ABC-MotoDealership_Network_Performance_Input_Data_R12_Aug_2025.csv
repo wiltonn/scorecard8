@@ -1,0 +1,79 @@
+Start_Date,End_Date,Department,Description,07001TEST_ABC-Moto_CY,07001TEST_ABC-Moto_CY_vs_LY,07001TEST_ABC-Moto_YoY_Change,B_Class_CY,B_Class_CY_vs_LY,B_Class_%_of_Class,ABC-Moto_CY,ABC-Moto_CY_vs_LY,ABC-Moto_%_of_Nat_Avg
+24-Sep,25-Aug,Overall Dealership,Overall Dealership Net Sales,13717053,388048,0.03,10038660,0,1.37,11727975,0,1.17
+24-Sep,25-Aug,Overall Dealership,Overall Dealership Gross Margin %,0.2064,-0.0046,-0.02,0.2277,0,0.91,0.2135,0,0.97
+24-Sep,25-Aug,Overall Dealership,Total ABC Product Gross Margin % (Excl. Service Labour),0.3806,-0.0148,-0.04,0.3715,0,1.02,0.3728,0,1.02
+24-Sep,25-Aug,Overall Dealership,Employee Wages as a % of Overall Dealership Sales,0.1159,0.0065,0.06,0.0946,0,1.22,0.0822,0,1.41
+24-Sep,25-Aug,Overall Dealership,General Management & Admin. Wages as a % of Overall Dealership Sales,0.0057,-0.0166,-0.74,0.0248,0,0.23,0.0193,0,0.3
+24-Sep,25-Aug,Overall Dealership,Advertising Dollars Per Unit Sold,625,188,0.43,544,0,1.15,506,0,1.23
+24-Sep,25-Aug,Overall Dealership,Advertising as a % of Net Sales,0.0231,0.0073,0.46,0.0206,0,1.12,0.0191,0,1.21
+24-Sep,25-Aug,Overall Dealership,Total Operating Expenses as % of Net Sales,0.2676,0.0083,0.03,0.2466,0,1.08,0.2243,0,1.19
+24-Sep,25-Aug,Overall Dealership,Net Operating Profit Before Taxes and Non-Operating Income/Expenses ($),-639766,-124811,-0.24,-75422,0,8.48,47816,0,-13.38
+24-Sep,25-Aug,Overall Dealership,Net Operating Profit as a % of Net Sales (RETURN ON SALES),-0.0466,-0.008,-0.21,-0.0075,0,6.21,0.0041,0,-11.37
+24-Sep,25-Aug,Overall Dealership,Net Income (Loss) After Taxes ($),-951253,-128080,-0.16,-22245,0,42.76,34243,0,-27.78
+24-Sep,25-Aug,Overall Dealership,Net Income (Loss) After Taxes as % of Sales,-0.0693,-0.0076,-0.12,-0.0022,0,31.29,0.0029,0,-23.9
+24-Sep,25-Aug,Overall Dealership,Total Absorption,0.5692,0.037,0.07,0.6925,0,0.82,0.6903,0,0.82
+24-Sep,25-Aug,Overall Dealership,CXI Net Promoter Score (NPS),89.47,-5.69,-0.06,91.9,0,0.97,91.5,0,0.98
+24-Sep,25-Aug,Overall Dealership,New ABC Sales % Contribution within DAT,0.719,0.0055,0.01,0.633,0,1.14,0.6364,0,1.13
+24-Sep,25-Aug,Overall Dealership,Total Brand Market Share % within DAT (601cc+),0.2898,0.0158,0.06,0.2337,0,1.24,0.2499,0,1.16
+24-Sep,25-Aug,Overall Dealership,Current Ratio,1,0.0001,0.0001,1.8,0,0.54,1.8,0,0.56
+24-Sep,25-Aug,Overall Dealership,Debt / Equity Ratio,-1.5,0.1,0.03,1.9,0,-0.79,1.6,0,-0.94
+24-Sep,25-Aug,Overall Dealership,Debt to TNW Ratio,-1.5,0,0.02,2.1,0,-0.71,2.1,0,-0.71
+24-Sep,25-Aug,Overall Dealership,Return on Operating Assets - YTD (ROA),-0.3432,-0.0249,-0.08,-0.0033,0,102.87,0.0048,0,-71.5
+24-Sep,25-Aug,New Vehicle Sales,# of New ABC Motorcycles Sold,156,2,0.01,123,0,1.27,146,0,1.07
+24-Sep,25-Aug,New Vehicle Sales,New ABC Motorcycle Net Sales $,5020980,-189176,-0.04,4054641,0,1.24,4950956,0,1.01
+24-Sep,25-Aug,New Vehicle Sales,New ABC MC Gross Margin %,0.1072,-0.0038,-0.03,0.1204,0,0.89,0.1076,0,1
+24-Sep,25-Aug,New Vehicle Sales,New ABC MC Average Selling Price,32186,-1064,-0.03,32965,0,0.98,33910,0,0.95
+24-Sep,25-Aug,New Vehicle Sales,ABC 1 Performance Rewards Earned,232549,40289,0.21,174127,0,1.34,173316,0,1.34
+24-Sep,25-Aug,New Vehicle Sales,# of New Other (NON ABC) MC/Vehicles/Units Sold,6,-1,-0.14,2.08,0,2.88,1.66,0,3.61
+24-Sep,25-Aug,New Vehicle Sales,New Other (NON ABC) MC/Vehicles/Units Net Sales $,316605,33929,0.12,195488,0,1.62,170879,0,1.85
+24-Sep,25-Aug,New Vehicle Sales,New Other (NON ABC) MC/Vehicles/Units Gross Margin %,0.1414,0.1262,8.28,-0.015,0,-9.43,-0.0038,0,-37.21
+24-Sep,25-Aug,Used Vehicle Sales,# of Used ABC MC Sold,119,8,0.07,97,0,1.23,115,0,1.03
+24-Sep,25-Aug,Used Vehicle Sales,Used ABC MC Net Sales $,2396437,141755,0.06,1776810,0,1.35,2128903,0,1.13
+24-Sep,25-Aug,Used Vehicle Sales,Used ABC Gross Margin %,0.1137,-0.0162,-0.12,0.0906,0,1.25,0.0887,0,1.28
+24-Sep,25-Aug,Used Vehicle Sales,Used ABC MC Average Selling Price,20138,159,0.01,18319,0,1.1,18513,0,1.09
+24-Sep,25-Aug,Used Vehicle Sales,New:Used Ratio (ABC),1.31,-0.08,-0.06,1.27,0,1.03,1.27,0,1.03
+24-Sep,25-Aug,Used Vehicle Sales,# of Used NON-ABC MC Sold,28,-1,-0.03,12.33,0,2.27,18.4,0,1.52
+24-Sep,25-Aug,Used Vehicle Sales,Used NON-ABC MC Net Sales $,417988,41023,0.11,141709,0,2.95,219115,0,1.91
+24-Sep,25-Aug,Used Vehicle Sales,Used NON-ABC MC Gross Margin %,0.1252,-0.0195,-0.13,0.0923,0,1.36,0.078,0,1.6
+24-Sep,25-Aug,Used Vehicle Sales,Total # of Used MC (ABC & NON-ABC) Sold,147,7,0.05,109,0,1.35,133,0,1.1
+24-Sep,25-Aug,Used Vehicle Sales,Total Used MC (ABC & NON-ABC) Net Sales $,2814425,182778,0.07,1918519,0,1.47,2348018,0,1.2
+24-Sep,25-Aug,Used Vehicle Sales,Total Used MC (ABC & NON-ABC) Gross Margin %,0.1154,-0.0164,-0.12,0.0915,0,1.26,0.0871,0,1.33
+24-Sep,25-Aug,F&I Sales,Total Finance & Insurance Sales $,966103,135143,0.16,584696,0,1.65,748723,0,1.29
+24-Sep,25-Aug,F&I Sales,F&I Gross Profit Per Total Units Retailed (PTUR),2337,289,0.14,1688,0,1.38,1626,0,1.44
+24-Sep,25-Aug,F&I Sales,ABCFS F&I Income Per New & Used ABC MC Retailed (PNUHMR),3102,294,0.1,2533,0,1.22,2447,0,1.27
+24-Sep,25-Aug,F&I Sales,ABCFS F&I Gross Profit Per New & Used ABC MC Retailed (PNUHMR),2046,186,0.1,1493,0,1.37,1496,0,1.37
+24-Sep,25-Aug,F&I Sales,ABCFS ESP Penetration %,0.5055,0.0214,0.04,0.437,0,1.16,0.4667,0,1.08
+24-Sep,25-Aug,F&I Sales,ABCFS Retail Finance Product Penetration %,0.5273,-0.0054,-0.01,0.475,0,1.11,0.5396,0,0.98
+24-Sep,25-Aug,F&I Sales,Life & Disability Insurance Penetration %,0.0073,0.0037,1.03,0.0505,0,0.14,0.2718,0,0.03
+24-Sep,25-Aug,P&A Sales,Total P&A Sales,1847547,83735,0.05,1467891,0,1.26,1924668,0,0.96
+24-Sep,25-Aug,P&A Sales,P&A Gross Margin %,0.3102,-0.0062,-0.02,0.3014,0,1.03,0.3136,0,0.99
+24-Sep,25-Aug,P&A Sales,Total Sales - ABC Parts & Accessories,1302458,-12371,-0.01,1077752,0,1.21,1315652,0,0.99
+24-Sep,25-Aug,P&A Sales,ABC Parts & Accessories Gross Margin %,0.3377,0.0016,0,0.3348,0,1.01,0.3323,0,1.02
+24-Sep,25-Aug,P&A Sales,P&A Net Sales Per Total Units Retailed (PTUR),5703,-163,-0.03,7145,0,0.8,6871,0,0.83
+24-Sep,25-Aug,P&A Sales,ABC P&A Net Sales per New ABC MC Retailed (PNHMR),8349,-638,-0.07,8762,0,0.95,9011,0,0.93
+24-Sep,25-Aug,P&A Sales,ABC P&A Inventory Turns,2.37,0.21,0.1,2.69,0,0.88,2.8,0,0.85
+24-Sep,25-Aug,P&A Sales,ABC P&A Non-Moving Inventory %,0.3973,-0.0208,-0.05,0.3752,0,1.06,0.3466,0,1.15
+24-Sep,25-Aug,A&L Sales Growth,Total A&L Sales,622804,54849,0.1,529987,0,1.18,752009,0,0.83
+24-Sep,25-Aug,A&L Sales Growth,Apparel & Licensing Gross Margin %,0.3795,0.0039,0.01,0.3526,0,1.08,0.3553,0,1.07
+24-Sep,25-Aug,A&L Sales Growth,Total Sales - ABC Apparel & Licensing,372133,53259,0.17,310920,0,1.2,370393,0,1
+24-Sep,25-Aug,A&L Sales Growth,ABC Apparel & Licensing Gross Margin %,0.506,-0.0334,-0.06,0.5042,0,1,0.5187,0,0.98
+24-Sep,25-Aug,A&L Sales Growth,Apparl. & Licens. Net Sales per Total Units Retailed (PTUR),1922,72,0.04,2580,0,0.75,2686,0,0.72
+24-Sep,25-Aug,A&L Sales Growth,ABC A&L Net Sales per New ABC MC Retailed (PNHMR),2385,200,0.09,2528,0,0.94,2537,0,0.94
+24-Sep,25-Aug,A&L Sales Growth,ABC A&L Seasonal Product Sell-through %,0.4506,-0.0154,-0.03,0.4858,0,0.93,0.4727,0,0.95
+24-Sep,25-Aug,A&L Sales Growth,ABC A&L Inventory Turns,0.95,-0.01,-0.01,0.95,0,1,0.98,0,0.97
+24-Sep,25-Aug,A&L Sales Growth,ABC A&L Non-Moving Inventory %,0.3218,0.0088,0.03,0.34,0,0.95,0.3448,0,0.93
+24-Sep,25-Aug,Service Sales Growth,Total Service Net Sales $,995498,86723,0.1,648447,0,1.53,834428,0,1.19
+24-Sep,25-Aug,Service Sales Growth,Service Sales Gross Margin %,0.6647,0.0063,0.01,0.6021,0,1.1,0.6265,0,1.06
+24-Sep,25-Aug,Service Sales Growth,Total Service Labour Net Sales $,948893,85766,0.1,593449,0,1.6,760928,0,1.25
+24-Sep,25-Aug,Service Sales Growth,Service Labour Gross Margin %,0.6878,0.0036,0.01,0.6759,0,1.02,0.6997,0,0.98
+24-Sep,25-Aug,Service Sales Growth,Labor Revenue Per Total Units Retailed (PTUR),2929,-62,-0.02,2889,0,1.01,2718,0,1.08
+24-Sep,25-Aug,Service Sales Growth,Service Sales $ Per Total Units Retailed,3073,-36,-0.01,3156,0,0.97,2981,0,1.03
+24-Sep,25-Aug,Service Sales Growth,Service Parts & Accessories Dollars to Labour Hour Ratio,192,-5,-0.03,198,0,0.97,206,0,0.93
+24-Sep,25-Aug,Service Sales Growth,Proficiency (Profitability),0.593,-0.0387,-0.06,0.6254,0,0.95,0.6621,0,0.9
+24-Sep,25-Aug,Service Sales Growth,Efficiency,1.0677,0.1335,0.14,0.9777,0,1.09,0.9905,0,1.08
+24-Sep,25-Aug,Service Sales Growth,Repair Orders (RO) per Tech per day,1.93,-0.25,-0.12,2.22,0,0.87,2.21,0,0.87
+24-Sep,25-Aug,Service Sales Growth,Service Labour Gross profit CP %,0.5709,-0.0038,-0.01,0.4929,0,1.16,0.4354,0,1.31
+24-Sep,25-Aug,Service Sales Growth,Service Labour Gross profit Internal PDI/Deal %,0.1804,0.0182,0.11,0.1436,0,1.26,0.1557,0,1.16
+24-Sep,25-Aug,Service Sales Growth,Service Labour Gross profit Warranty %,0.0301,0.0038,0.14,0.0337,0,0.89,0.0368,0,0.82
+24-Sep,25-Aug,Service Sales Growth,Effective Selling Rate,161,1,0.01,142,0,1.13,148,0,1.09
+24-Sep,25-Aug,Service Sales Growth,Labour Sales per RO,413,48,0.13,342,0,1.21,342,0,1.21

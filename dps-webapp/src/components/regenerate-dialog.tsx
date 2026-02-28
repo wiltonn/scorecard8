@@ -52,10 +52,24 @@ export function RegenerateDialog({
     }
   }, [open, templates]);
 
+  const dps01to07 = ['DPS-01', 'DPS-02', 'DPS-03', 'DPS-04', 'DPS-05', 'DPS-06', 'DPS-07'];
+
   const toggleReport = (code: string) => {
-    setSelectedReports(prev =>
-      prev.includes(code) ? prev.filter(r => r !== code) : [...prev, code]
-    );
+    setSelectedReports(prev => {
+      if (prev.includes(code)) {
+        return prev.filter(r => r !== code);
+      }
+      const next = [...prev, code];
+      // When DPS-08 is checked, auto-select all DPS-01 through DPS-07
+      if (code === 'DPS-08') {
+        for (const c of dps01to07) {
+          if (!next.includes(c)) {
+            next.push(c);
+          }
+        }
+      }
+      return next;
+    });
   };
 
   const handleRegenerate = async () => {
@@ -155,7 +169,12 @@ export function RegenerateDialog({
                     onChange={() => toggleReport(template.reportCode)}
                     className="h-4 w-4 accent-[#2ea3f2]"
                   />
-                  <span className="text-sm text-[var(--foreground)]">{template.department}</span>
+                  <span className="text-sm text-[var(--foreground)]">
+                    {template.department}
+                    {template.reportCode === 'DPS-08' && (
+                      <span className="text-xs text-[var(--muted-foreground)] ml-1">(synthesizes DPS-01–07)</span>
+                    )}
+                  </span>
                 </label>
               ))}
             </div>

@@ -115,12 +115,24 @@ export default function Home() {
     window.URL.revokeObjectURL(url);
   };
 
+  const dps01to07 = ['DPS-01', 'DPS-02', 'DPS-03', 'DPS-04', 'DPS-05', 'DPS-06', 'DPS-07'];
+
   const toggleReport = (reportCode: string) => {
-    setSelectedReports(prev =>
-      prev.includes(reportCode)
-        ? prev.filter(r => r !== reportCode)
-        : [...prev, reportCode]
-    );
+    setSelectedReports(prev => {
+      if (prev.includes(reportCode)) {
+        return prev.filter(r => r !== reportCode);
+      }
+      const next = [...prev, reportCode];
+      // When DPS-08 is checked, auto-select all DPS-01 through DPS-07
+      if (reportCode === 'DPS-08') {
+        for (const code of dps01to07) {
+          if (!next.includes(code)) {
+            next.push(code);
+          }
+        }
+      }
+      return next;
+    });
   };
 
   const handleRegenerate = (sessionId: string) => {
@@ -171,7 +183,12 @@ export default function Home() {
                     className="h-4 w-4 accent-[#2ea3f2]"
                   />
                   <div>
-                    <p className="font-medium text-sm text-[var(--foreground)]">{template.department}</p>
+                    <p className="font-medium text-sm text-[var(--foreground)]">
+                      {template.department}
+                      {template.reportCode === 'DPS-08' && (
+                        <span className="text-xs font-normal text-[var(--muted-foreground)] ml-1">(requires DPS-01–07)</span>
+                      )}
+                    </p>
                     <p className="text-xs text-[var(--muted-foreground)]">{template.reportCode}</p>
                   </div>
                 </label>
