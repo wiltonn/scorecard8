@@ -142,3 +142,4 @@ The generated migration SQL file will appear in `dps-webapp/prisma/migrations/` 
 | DPS-05 | Parts & Accessories |
 | DPS-06 | Apparel & Licensing |
 | DPS-07 | Service Sales |
+

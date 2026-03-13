@@ -3,3 +3,7 @@
 # Dagger
 .dagger/node_modules
 .dagger/sdk
+
+# Claude Worktrees
+
+.claude/worktrees/
