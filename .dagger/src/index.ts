@@ -53,6 +53,45 @@ export class Scorecard8 {
   }
 
   /**
+   * Creates a new Prisma migration using an ephemeral Postgres instance.
+   *
+   * Runs `prisma migrate dev --name <migrationName>` inside a Dagger container,
+   * then exports the generated migration files back to the host source tree.
+   *
+   * Use this on feature branches to author migrations without a local DB.
+   */
+  @func()
+  async migrationDev(
+    source: Directory,
+    migrationName: string,
+  ): Promise<string> {
+    const pg = this.postgres()
+    const app = this.appContainer(pg, source)
+
+    // Run prisma migrate dev to create the migration
+    const migrated = app
+      .withEnvVariable("CACHE_BUST", Date.now().toString())
+      .withExec([
+        "npx",
+        "prisma",
+        "migrate",
+        "dev",
+        "--name",
+        migrationName,
+      ])
+
+    // Extract the prisma/migrations directory from the container
+    const migrationsDir = migrated.directory("/app/prisma/migrations")
+
+    // Export back to the host source tree.
+    // The Dagger SDK export() writes relative to where `dagger call` is invoked,
+    // so we target dps-webapp/prisma/migrations (matching --source ./dps-webapp).
+    await migrationsDir.export("./dps-webapp/prisma/migrations")
+
+    return migrated.stdout()
+  }
+
+  /**
    * Runs the full pipeline: ephemeral DB, migrations, seed, and health check
    */
   @func()

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dps-webapp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: dps-webapp
+
+      - name: Install Dagger CLI
+        run: curl -fsSL https://dl.dagger.io/dagger/install.sh | BIN_DIR=/usr/local/bin sudo -E sh
+
+      - name: Run Dagger pipeline (ephemeral DB + migrations + seed + health check)
+        run: dagger call pipeline --source ./dps-webapp
+
+      - name: Lint
+        run: npm run lint
+        working-directory: dps-webapp
+
+      - name: Build
+        run: npm run build
+        working-directory: dps-webapp
