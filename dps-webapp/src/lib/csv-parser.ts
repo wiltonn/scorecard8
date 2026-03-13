@@ -65,8 +65,13 @@ export function parseCSV(csvContent: string): ParsedCSVData {
     dynamicTyping: true,
   });
 
-  if (result.errors.length > 0) {
-    throw new Error(`CSV parsing error: ${result.errors[0].message}`);
+  // Filter out FieldMismatch errors (TooFewFields / TooManyFields) — PapaParse
+  // still parses the data successfully, just with missing fields as undefined.
+  // This happens when rows have fewer columns than the header (e.g., optional
+  // trailing columns) and should not be treated as fatal.
+  const fatalErrors = result.errors.filter(e => e.type !== 'FieldMismatch');
+  if (fatalErrors.length > 0) {
+    throw new Error(`CSV parsing error: ${fatalErrors[0].message}`);
   }
 
   const data = result.data as Record<string, any>[];
@@ -157,8 +162,9 @@ export function validateCSVStructure(csvContent: string): { valid: boolean; erro
   try {
     const result = Papa.parse(csvContent, { header: true, preview: 2 });
 
-    if (result.errors.length > 0) {
-      return { valid: false, error: result.errors[0].message };
+    const fatalErrors = result.errors.filter(e => e.type !== 'FieldMismatch');
+    if (fatalErrors.length > 0) {
+      return { valid: false, error: fatalErrors[0].message };
     }
 
     const headers = result.meta.fields || [];
