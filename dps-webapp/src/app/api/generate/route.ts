@@ -9,6 +9,7 @@ import { generateDepartmentReport } from '@/lib/docx-generator';
 import { generateOverallScorecardReport } from '@/lib/overall-scorecard-generator';
 import { DepartmentalAssessmentInput, KPIDataForReport, OverallScoreAssessment } from '@/types';
 import { createClient } from '@/lib/supabase/server';
+import { KPI_TO_CATEGORY_MAP, APPROVED_KPI_CODES } from '@/lib/v4-constants';
 
 /**
  * Normalize a CSV description for matching purposes.
@@ -123,7 +124,8 @@ export async function POST(request: NextRequest) {
             row.currentValue,
             kpiDef.rulesetType.id,
             kpiDef.benchmarkMin,
-            kpiDef.benchmarkMax
+            kpiDef.benchmarkMax,
+            kpiDef.kpiCode
           );
 
           const priorYearValue = row.currentValue - row.yoyChangeAbsolute;
@@ -149,6 +151,7 @@ export async function POST(request: NextRequest) {
             nationalYoyChange: row.nationalYoyChange,
             percentOfNational: row.percentOfNational,
             benchmarkScore,
+            scoringCategory: KPI_TO_CATEGORY_MAP[kpiDef.kpiCode] || undefined,
           });
 
           // For the DB (no benchmark columns)
@@ -293,9 +296,12 @@ export async function POST(request: NextRequest) {
               dd.classLabel
             );
           } else {
-            // Standard department report
+            // Standard department report — filter by department and approved KPI list (Section 7)
+            const deptCode = template.department.code;
+            const approvedCodes = APPROVED_KPI_CODES[deptCode];
             const deptKpiValues = (dd.kpiValues as any[]).filter(
               (kv: any) => kv.departmentId === template.departmentId
+                && (!approvedCodes || approvedCodes.includes(kv.kpiCode))
             );
 
             assessment = await generateDepartmentAssessment(

@@ -73,6 +73,7 @@ export interface KPIDataForReport {
   benchmarkMax?: number | null;
   higherIsBetter: boolean;
   classLabel?: string;
+  scoringCategory?: string;
 }
 
 export interface OverallScoreCategory {

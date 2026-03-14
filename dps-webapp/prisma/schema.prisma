@@ -242,13 +242,12 @@ model KpiValue {
 
 enum BenchmarkScore {
   EXCEPTIONAL
-  EXCELLENT
   GREAT
   GOOD
   ACCEPTABLE
   WEAK
   SUBSTANDARD
-  POOR
+  SIZE
   NA
 }
 

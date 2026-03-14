@@ -1,5 +1,13 @@
 import { AIAssessment, DepartmentalAssessmentInput, KPIDataForReport, OverallScoreAssessment } from '@/types';
 import { CommentaryStyle } from '@prisma/client';
+import {
+  V4_SCORING_CATEGORIES,
+  CROSS_DEPT_RELATIONSHIPS,
+  CANADIAN_MARKET_LENIENCY_INSTRUCTION,
+  applyWordReplacements,
+  getInventoryTurnsMetadata,
+  INVENTORY_TURNS_KPIS,
+} from './v4-constants';
 
 export function isAIAvailable(): boolean {
   return !!process.env.ANTHROPIC_API_KEY;
@@ -35,10 +43,14 @@ export async function generateDepartmentAssessment(
     anthropic, dealerName, departmentName, periodStart, periodEnd, kpiData, kpiAssessments, commentaryStyle, classLabel
   );
 
-  return {
+  // Apply word replacements to all text fields
+  return applyWordReplacementsToAssessment({
     ...summary,
-    kpiAssessments,
-  };
+    kpiAssessments: kpiAssessments.map(ka => ({
+      ...ka,
+      assessment: applyWordReplacements(ka.assessment),
+    })),
+  });
 }
 
 // --- Per-KPI AI call ---
@@ -65,9 +77,35 @@ async function generateSingleKpiAssessment(
   const pctOfNat = kpi.percentOfNational ? `${(kpi.percentOfNational * 100).toFixed(0)}% of National` : 'N/A';
   const yoyChange = kpi.yoyChangePercent ? `${(kpi.yoyChangePercent * 100).toFixed(1)}% YoY` : 'N/A';
 
+  // YoY trajectory context (Section 3.4)
+  let yoyTrajectoryContext = '';
+  if (kpi.bClassYoyChange != null || kpi.nationalYoyChange != null) {
+    yoyTrajectoryContext = `\n- ${classLabel} YoY Change: ${kpi.bClassYoyChange != null ? (kpi.bClassYoyChange * 100).toFixed(1) + '%' : 'N/A'}`;
+    yoyTrajectoryContext += `\n- National YoY Change: ${kpi.nationalYoyChange != null ? (kpi.nationalYoyChange * 100).toFixed(1) + '%' : 'N/A'}`;
+    yoyTrajectoryContext += `\nCompare the dealer's YoY trajectory against class and national peers. For Income KPIs, a more positive change is favorable. For Expense KPIs, a more negative change is favorable.`;
+  }
+
+  // Inventory turns context (Section 3.5)
+  let inventoryTurnsContext = '';
+  if (kpi.kpiCode === INVENTORY_TURNS_KPIS.PA || kpi.kpiCode === INVENTORY_TURNS_KPIS.AL) {
+    const meta = getInventoryTurnsMetadata(kpi.kpiCode, kpi.currentValue, kpi.benchmarkMin, kpi.benchmarkMax);
+    if (meta) {
+      inventoryTurnsContext = '\n\nINVENTORY TURNS SPECIAL RULES:';
+      if (meta.diminishingReturns) {
+        inventoryTurnsContext += '\n- Result > 4.5x: FLAG diminishing returns risk. Note out-of-stock and reduced showroom selection concern. Apply slight negative score impact.';
+      }
+      if (meta.toleranceGraceApplied) {
+        inventoryTurnsContext += '\n- Result is within -10% of Benchmark Minimum: Treat as GOOD (acceptable).';
+      }
+      if (meta.recommendPAMTool) {
+        inventoryTurnsContext += '\n- Result is less than GREAT: Recommend the dealer review the ABC-Moto PAM Turns Tool and refer to Manage by Numbers lessons on Optimizing P&A and A&L Inventory Performance.';
+      }
+    }
+  }
+
   const prompt = `You are a motorcycle dealership performance analyst. Write a focused assessment for a single KPI.
 
-Style: ${commentaryStyle} \u2014 ${styleGuides[commentaryStyle]}
+Style: ${commentaryStyle} — ${styleGuides[commentaryStyle]}
 
 Dealership: ${dealerName}
 Department: ${departmentName}
@@ -81,8 +119,11 @@ KPI: ${kpi.kpiName}
 - National Average: ${formatValue(kpi.nationalAverage, kpi.dataFormat)} (${pctOfNat})
 - Benchmark Score: ${kpi.benchmarkScore || 'N/A'}
 - Higher is Better: ${kpi.higherIsBetter ? 'Yes' : 'No'}
+- Scoring Category: ${kpi.scoringCategory || 'N/A'}${yoyTrajectoryContext}${inventoryTurnsContext}
 
-Write a professional assessment paragraph for this KPI. Reference the specific numbers. Compare against benchmarks. Note the YoY trend. Comment on the benchmark score. Do NOT include the KPI name as a heading \u2014 just the assessment text. Respond with ONLY the assessment text, no JSON or markup.`;
+${CANADIAN_MARKET_LENIENCY_INSTRUCTION}
+
+Write a professional assessment paragraph for this KPI. Reference the specific numbers. Compare against benchmarks. Note the YoY trend and compare against class/national YoY trends. Comment on the benchmark score. Do NOT include the KPI name as a heading — just the assessment text. Respond with ONLY the assessment text, no JSON or markup.`;
 
   try {
     const response = await anthropic.messages.create({
@@ -93,7 +134,7 @@ Write a professional assessment paragraph for this KPI. Reference the specific n
 
     const content = response.content[0];
     if (content.type === 'text') {
-      return { kpiCode: kpi.kpiCode, assessment: content.text.trim() };
+      return { kpiCode: kpi.kpiCode, assessment: applyWordReplacements(content.text.trim()) };
     }
   } catch (error) {
     console.error(`AI assessment failed for KPI ${kpi.kpiCode}:`, error);
@@ -126,15 +167,28 @@ async function generateDepartmentSummary(
 
   const kpiSummaryLines = kpiData.map(kpi => {
     const assessment = kpiAssessments.find(a => a.kpiCode === kpi.kpiCode);
-    return `- ${kpi.kpiName} [${kpi.benchmarkScore || 'N/A'}]: ${formatValue(kpi.currentValue, kpi.dataFormat)}\n  Assessment: ${assessment?.assessment || 'N/A'}`;
+    return `- ${kpi.kpiName} [${kpi.benchmarkScore || 'N/A'}] (Category: ${kpi.scoringCategory || 'N/A'}): ${formatValue(kpi.currentValue, kpi.dataFormat)}\n  Assessment: ${assessment?.assessment || 'N/A'}`;
   }).join('\n');
+
+  // Build cross-department context
+  const deptCode = Object.entries(CROSS_DEPT_RELATIONSHIPS).find(([, desc]) =>
+    desc.toLowerCase().includes(departmentName.toLowerCase().split(' ')[0])
+  );
+  const crossDeptContext = deptCode ? `\nCross-Department Context: ${deptCode[1]}` : '';
+
+  const v4CategoriesDescription = V4_SCORING_CATEGORIES
+    .map((c, i) => `${i + 1}. ${c.category} (${c.weight}% weight)`)
+    .join('\n');
 
   const prompt = `You are a motorcycle dealership performance analyst. Generate a department-level summary for the ${departmentName} department at ${dealerName} for ${periodStart} to ${periodEnd}.
 
-Style: ${commentaryStyle} \u2014 ${styleGuides[commentaryStyle]}
+Style: ${commentaryStyle} — ${styleGuides[commentaryStyle]}
 
 KPI Overview (${kpiData.length} KPIs):
 ${kpiSummaryLines}
+${crossDeptContext}
+
+${CANADIAN_MARKET_LENIENCY_INSTRUCTION}
 
 Respond with valid JSON matching this exact structure:
 {
@@ -148,10 +202,10 @@ Respond with valid JSON matching this exact structure:
     "longTerm": ["action 1", "action 2"]
   },
   "criticalSummary": "Bold summary paragraph highlighting the most important takeaways",
-  "performanceScoreAssessment": "A paragraph summarizing the overall performance scores across all KPIs, noting how many scored Exceptional/Strong/Moderate/Substandard/Weak, and what the scores indicate about overall ${classLabel} and national benchmark positioning",
+  "performanceScoreAssessment": "A paragraph summarizing the overall performance scores across all KPIs, noting how many scored Exceptional/Great/Good/Acceptable/Weak/Substandard, and what the scores indicate about overall ${classLabel} and national benchmark positioning",
   "performanceScoreCategories": [
     {
-      "category": "Short category name (e.g. Sales Performance, Gross Profit Performance, Cost Management, Market Position/Growth, Operational Efficiency)",
+      "category": "Category name from the 4-category framework",
       "weight": 30,
       "score": 80,
       "bullets": ["Key finding 1 referencing specific data", "Key finding 2"]
@@ -160,11 +214,13 @@ Respond with valid JSON matching this exact structure:
 }
 
 IMPORTANT for performanceScoreCategories:
-- Create exactly 5 performance categories that cover the KPIs analyzed
-- Weights must sum to 100 (typically: 30, 25, 20, 15, 10)
+- Use exactly these 4 performance categories with these weights:
+${v4CategoriesDescription}
+- Weights must sum to 100 (30, 25, 20, 25)
 - Scores are 0-100 based on the benchmark data
 - Each category should have 2-3 bullet points summarizing key findings
-- Category names should be concise (e.g. "Sales Performance", "Gross Profit Performance", "Cost Management", "Market Position/Growth", "Operational Efficiency")
+- Allocate each KPI to its scoring category based on the Category field shown above
+- Apply Canadian market leniency when scoring — be MORE LENIENT and GENEROUS
 
 Reference specific KPI names and benchmark scores. Use "${classLabel}" when referring to the volume class benchmark. Provide actionable recommendations.`;
 
@@ -242,8 +298,10 @@ function buildPlaceholderKpiAssessment(kpi: KPIDataForReport, classLabel: string
     }
   }
 
-  if (kpi.benchmarkScore && kpi.benchmarkScore !== 'NA') {
+  if (kpi.benchmarkScore && kpi.benchmarkScore !== 'NA' && kpi.benchmarkScore !== 'SIZE') {
     parts.push(`Benchmark assessment: ${kpi.benchmarkScore}.`);
+  } else if (kpi.benchmarkScore === 'SIZE') {
+    parts.push('This is a Size KPI — reported for context only, no benchmark scoring applied.');
   }
 
   return parts.join(' ');
@@ -283,13 +341,12 @@ function buildPlaceholderSummary(
     },
     criticalSummary: `This ${departmentName} report provides benchmark scores and comparisons for ${dealerName}. Enable AI-generated commentary for detailed, personalized analysis and recommendations.`,
     performanceScoreAssessment: `Performance scores are based on ${classLabel} and national benchmark comparisons. Enable AI-generated commentary for a detailed performance score assessment.`,
-    performanceScoreCategories: [
-      { category: 'Sales Performance', weight: 30, score: 70, bullets: ['Data-driven performance tracking in place', 'Enable AI for detailed analysis'] },
-      { category: 'Gross Profit Performance', weight: 25, score: 70, bullets: ['Comprehensive KPI monitoring', 'Enable AI for detailed analysis'] },
-      { category: 'Cost Management', weight: 20, score: 70, bullets: ['Regular benchmark comparisons', 'Enable AI for detailed analysis'] },
-      { category: 'Market Position/Growth', weight: 15, score: 70, bullets: ['Industry standard tracking', 'Enable AI for detailed analysis'] },
-      { category: 'Operational Efficiency', weight: 10, score: 70, bullets: ['Balanced operations monitoring', 'Enable AI for detailed analysis'] },
-    ],
+    performanceScoreCategories: V4_SCORING_CATEGORIES.map(c => ({
+      category: c.category,
+      weight: c.weight,
+      score: 70,
+      bullets: ['Data-driven performance tracking in place', 'Enable AI for detailed analysis'],
+    })),
   };
 }
 
@@ -316,6 +373,27 @@ function formatValue(value: number | null | undefined, format: string): string {
     default:
       return String(value);
   }
+}
+
+function applyWordReplacementsToAssessment(assessment: AIAssessment): AIAssessment {
+  return {
+    ...assessment,
+    executiveSummary: applyWordReplacements(assessment.executiveSummary),
+    departmentContext: assessment.departmentContext ? applyWordReplacements(assessment.departmentContext) : undefined,
+    strengths: assessment.strengths.map(applyWordReplacements),
+    weaknesses: assessment.weaknesses.map(applyWordReplacements),
+    recommendations: {
+      immediate: assessment.recommendations.immediate.map(applyWordReplacements),
+      shortTerm: assessment.recommendations.shortTerm.map(applyWordReplacements),
+      longTerm: assessment.recommendations.longTerm.map(applyWordReplacements),
+    },
+    criticalSummary: applyWordReplacements(assessment.criticalSummary),
+    performanceScoreAssessment: assessment.performanceScoreAssessment ? applyWordReplacements(assessment.performanceScoreAssessment) : undefined,
+    performanceScoreCategories: assessment.performanceScoreCategories?.map(cat => ({
+      ...cat,
+      bullets: cat.bullets.map(applyWordReplacements),
+    })),
+  };
 }
 
 // --- Overall Scorecard Assessment ---
@@ -347,19 +425,21 @@ export async function generateOverallScorecardAssessment(
   const kpiSummaryLines = kpiData.map(kpi => {
     const pctOfBClass = kpi.percentOfBClass ? `${(kpi.percentOfBClass * 100).toFixed(0)}% of ${classLabel}` : 'N/A';
     const pctOfNat = kpi.percentOfNational ? `${(kpi.percentOfNational * 100).toFixed(0)}% of National` : 'N/A';
-    return `- ${kpi.kpiName}: ${formatValue(kpi.currentValue, kpi.dataFormat)} | ${classLabel}: ${pctOfBClass} | National: ${pctOfNat} | Score: ${kpi.benchmarkScore || 'N/A'}`;
+    return `- ${kpi.kpiName}: ${formatValue(kpi.currentValue, kpi.dataFormat)} | ${classLabel}: ${pctOfBClass} | National: ${pctOfNat} | Score: ${kpi.benchmarkScore || 'N/A'} | Category: ${kpi.scoringCategory || 'N/A'}`;
   }).join('\n');
+
+  const v4CategoriesDescription = V4_SCORING_CATEGORIES
+    .map((c, i) => `${i + 1}. ${c.category} (${c.weight}% weight)`)
+    .join('\n');
 
   const prompt = `You are a motorcycle dealership performance analyst. Generate a comprehensive OVERALL DEALERSHIP PERFORMANCE SCORECARD for ${dealerName} for the period ${periodStart} to ${periodEnd}.
 
 Style: ${commentaryStyle} — ${styleGuides[commentaryStyle]}
 
-This report evaluates ALL departments holistically across 5 weighted categories:
-1. Financial Performance (30% weight) - Overall profitability, margins, ROA, net income
-2. Departmental Performance (25% weight) - Individual department contributions and efficiency
-3. Cost Management (20% weight) - Expense control, wages, advertising costs
-4. Market Position/Growth (15% weight) - Market share, brand contribution, competitive standing
-5. Operational Efficiency (10% weight) - Absorption, service metrics, inventory management
+This report evaluates ALL departments holistically across 4 weighted categories:
+${v4CategoriesDescription}
+
+${CANADIAN_MARKET_LENIENCY_INSTRUCTION}
 
 KPI Data (${kpiData.length} KPIs across all departments):
 ${kpiSummaryLines}
@@ -411,13 +491,14 @@ Respond with valid JSON matching this exact structure:
 }
 
 IMPORTANT:
-- overallCategories must have exactly 5 categories with weights 30, 25, 20, 15, 10
+- overallCategories must have exactly 4 categories with weights 30, 25, 20, 25
 - overallScore should be the weighted total of all category scores
 - performanceRating should be one of: "EXCEPTIONAL PERFORMANCE", "STRONG PERFORMANCE", "MODERATE PERFORMANCE", "NEEDS IMPROVEMENT", "NEEDS IMMEDIATE IMPROVEMENT"
 - Each assessmentFactors entry should be a labeled bullet like "Factor Name: explanation..."
 - Reference specific KPI values and ${classLabel} comparisons throughout
 - boardActionRequired should list urgent items requiring board/management attention
-- pathToImprovement should show realistic scenario with specific weighted gains`;
+- pathToImprovement should show realistic scenario with specific weighted gains
+- Apply Canadian market leniency — be MORE LENIENT and GENEROUS in scoring`;
 
   try {
     const response = await anthropic.messages.create({
@@ -428,7 +509,8 @@ IMPORTANT:
 
     const content = response.content[0];
     if (content.type === 'text') {
-      return parseOverallScorecardResponse(content.text, dealerName, kpiData, classLabel);
+      const result = parseOverallScorecardResponse(content.text, dealerName, kpiData, classLabel);
+      return applyWordReplacementsToOverallAssessment(result);
     }
   } catch (error) {
     console.error('AI overall scorecard assessment failed:', error);
@@ -485,6 +567,10 @@ Performance Categories: ${scoreCategories.map(c => `${c.category}: ${c.score}/10
 
   const includedDepts = departmentalAssessments.map(da => da.departmentName).join(', ');
 
+  const v4CategoriesDescription = V4_SCORING_CATEGORIES
+    .map((c, i) => `${i + 1}. ${c.category} (${c.weight}% weight)`)
+    .join('\n');
+
   const prompt = `You are a motorcycle dealership performance analyst. Generate a comprehensive OVERALL DEALERSHIP PERFORMANCE SCORECARD for ${dealerName} for the period ${periodStart} to ${periodEnd}.
 
 Style: ${commentaryStyle} — ${styleGuides[commentaryStyle]}
@@ -497,12 +583,10 @@ Departments included: ${includedDepts}
 ${deptSummaries}
 === END DEPARTMENTAL SUMMARIES ===
 
-Evaluate across these 5 weighted categories by synthesizing the departmental findings above:
-1. Financial Performance (30% weight) - Overall profitability, margins, ROA, net income across all departments
-2. Departmental Performance (25% weight) - Individual department contributions and relative efficiency
-3. Cost Management (20% weight) - Expense control, wages, advertising costs across departments
-4. Market Position/Growth (15% weight) - Market share, brand contribution, competitive standing
-5. Operational Efficiency (10% weight) - Absorption, service metrics, inventory management
+Evaluate across these 4 weighted categories by synthesizing the departmental findings above:
+${v4CategoriesDescription}
+
+${CANADIAN_MARKET_LENIENCY_INSTRUCTION}
 
 Respond with valid JSON matching this exact structure:
 {
@@ -551,7 +635,7 @@ Respond with valid JSON matching this exact structure:
 }
 
 IMPORTANT:
-- overallCategories must have exactly 5 categories with weights 30, 25, 20, 15, 10
+- overallCategories must have exactly 4 categories with weights 30, 25, 20, 25
 - overallScore should be the weighted total of all category scores
 - performanceRating should be one of: "EXCEPTIONAL PERFORMANCE", "STRONG PERFORMANCE", "MODERATE PERFORMANCE", "NEEDS IMPROVEMENT", "NEEDS IMMEDIATE IMPROVEMENT"
 - Each assessmentFactors entry should be a labeled bullet like "Factor Name: explanation..."
@@ -559,7 +643,8 @@ IMPORTANT:
 - Identify cross-departmental patterns and themes
 - boardActionRequired should synthesize the most urgent items across all departments
 - pathToImprovement should show realistic scenario referencing departmental recommendations
-- Use "${classLabel}" when referring to volume class benchmarks`;
+- Use "${classLabel}" when referring to volume class benchmarks
+- Apply Canadian market leniency — be MORE LENIENT and GENEROUS in scoring`;
 
   try {
     const response = await anthropic.messages.create({
@@ -570,7 +655,8 @@ IMPORTANT:
 
     const content = response.content[0];
     if (content.type === 'text') {
-      return parseOverallScorecardResponse(content.text, dealerName, [], classLabel);
+      const result = parseOverallScorecardResponse(content.text, dealerName, [], classLabel);
+      return applyWordReplacementsToOverallAssessment(result);
     }
   } catch (error) {
     console.error('AI overall scorecard synthesis failed:', error);
@@ -597,15 +683,6 @@ function generatePlaceholderOverallFromDepartments(
     }
   }
 
-  // Map to the 5 overall categories using averaged departmental scores
-  const overallCategoryNames = [
-    { category: 'Financial Performance', weight: 30 },
-    { category: 'Departmental Performance', weight: 25 },
-    { category: 'Cost Management', weight: 20 },
-    { category: 'Market Position/Growth', weight: 15 },
-    { category: 'Operational Efficiency', weight: 10 },
-  ];
-
   // Compute an average across all departmental category scores as a baseline
   let globalAvg = 50;
   if (categoryScoreMap.size > 0) {
@@ -618,14 +695,11 @@ function generatePlaceholderOverallFromDepartments(
     globalAvg = totalScore / count;
   }
 
-  // Try to match category names, fallback to global average
-  const categories = overallCategoryNames.map(oc => {
-    // Look for matching or similar category in departmental data
-    const match = categoryScoreMap.get(oc.category)
-      || categoryScoreMap.get(oc.category.replace('/Growth', ''))
-      || categoryScoreMap.get(oc.category + '/Growth');
+  // Map to the 4 overall categories
+  const categories = V4_SCORING_CATEGORIES.map(oc => {
+    const match = categoryScoreMap.get(oc.category);
     const score = match ? Math.round(match.totalWeightedScore / match.totalWeight) : Math.round(globalAvg);
-    return { ...oc, score };
+    return { category: oc.category, weight: oc.weight, score };
   });
 
   const overallScore = categories.reduce((sum, cat) => sum + (cat.weight / 100 * cat.score), 0);
@@ -793,20 +867,21 @@ function generatePlaceholderOverallAssessment(
   kpiData: KPIDataForReport[],
   classLabel: string = 'B-Class'
 ): OverallScoreAssessment {
-  const categories = [
-    { category: 'Financial Performance', weight: 30, score: 45 },
-    { category: 'Departmental Performance', weight: 25, score: 50 },
-    { category: 'Cost Management', weight: 20, score: 55 },
-    { category: 'Market Position/Growth', weight: 15, score: 40 },
-    { category: 'Operational Efficiency', weight: 10, score: 50 },
-  ];
+  const categories = V4_SCORING_CATEGORIES.map(c => ({
+    category: c.category,
+    weight: c.weight,
+    score: c.category === 'Financial Performance' ? 45
+      : c.category === 'Operational Efficiency & Expense Management' ? 50
+      : c.category === 'Market Position & Customer Satisfaction' ? 40
+      : 55, // Financial Health & Stability
+  }));
 
   const overallScore = categories.reduce((sum, cat) => sum + (cat.weight / 100 * cat.score), 0);
 
   return {
     reportType: 'OVERALL_SCORECARD',
     executiveSummary: `This report provides a comprehensive cross-departmental performance assessment for ${dealerName}. The assessment evaluates ${kpiData.length} KPIs across all departments against ${classLabel} averages and national benchmarks.`,
-    introductionParagraph: `This Overall Dealership Performance Scorecard provides a holistic assessment of ${dealerName}'s operations across all departments. The analysis synthesizes data from ${kpiData.length} key performance indicators spanning financial performance, departmental operations, cost management, market positioning, and operational efficiency. Each category is weighted according to its strategic importance and scored on a 0-100 scale. Enable AI-generated commentary for detailed, personalized analysis.`,
+    introductionParagraph: `This Overall Dealership Performance Scorecard provides a holistic assessment of ${dealerName}'s operations across all departments. The analysis synthesizes data from ${kpiData.length} key performance indicators spanning financial performance, operational efficiency, market positioning, and financial health. Each category is weighted according to its strategic importance and scored on a 0-100 scale. Enable AI-generated commentary for detailed, personalized analysis.`,
     overallCategories: categories.map(cat => ({
       ...cat,
       assessmentFactors: [
@@ -819,10 +894,10 @@ function generatePlaceholderOverallAssessment(
     performanceRating: overallScore >= 80 ? 'STRONG PERFORMANCE' : overallScore >= 60 ? 'MODERATE PERFORMANCE' : overallScore >= 40 ? 'NEEDS IMPROVEMENT' : 'NEEDS IMMEDIATE IMPROVEMENT',
     detailedScoreAnalysis: {
       strengths: [
-        { category: 'Departmental Performance', score: 50, bullets: ['Comprehensive KPI monitoring in place', 'Regular benchmark comparisons against industry standards'] },
+        { category: 'Operational Efficiency & Expense Management', score: 50, bullets: ['Comprehensive KPI monitoring in place', 'Regular benchmark comparisons against industry standards'] },
       ],
       weaknesses: [
-        { category: 'Market Position/Growth', score: 40, bullets: ['Enable AI commentary for detailed weakness analysis', 'Full assessment requires AI-generated commentary'] },
+        { category: 'Market Position & Customer Satisfaction', score: 40, bullets: ['Enable AI commentary for detailed weakness analysis', 'Full assessment requires AI-generated commentary'] },
       ],
     },
     scoreImplications: [
@@ -869,6 +944,23 @@ function generatePlaceholderOverallAssessment(
     },
     criticalSummary: `This overall performance scorecard provides benchmark scores and cross-departmental comparisons for ${dealerName}. Enable AI-generated commentary for detailed, personalized analysis and recommendations.`,
     kpiAssessments: [],
+  };
+}
+
+function applyWordReplacementsToOverallAssessment(assessment: OverallScoreAssessment): OverallScoreAssessment {
+  return {
+    ...applyWordReplacementsToAssessment(assessment) as OverallScoreAssessment,
+    reportType: 'OVERALL_SCORECARD',
+    introductionParagraph: applyWordReplacements(assessment.introductionParagraph),
+    overallCategories: assessment.overallCategories.map(cat => ({
+      ...cat,
+      assessmentFactors: cat.assessmentFactors.map(applyWordReplacements),
+      scoringRationale: applyWordReplacements(cat.scoringRationale),
+    })),
+    finalAssessmentParagraphs: assessment.finalAssessmentParagraphs.map(applyWordReplacements),
+    boardActionRequired: assessment.boardActionRequired.map(applyWordReplacements),
+    scoreImplications: assessment.scoreImplications.map(applyWordReplacements),
+    criticalSuccessFactors: assessment.criticalSuccessFactors.map(applyWordReplacements),
   };
 }
 

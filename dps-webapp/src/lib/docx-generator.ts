@@ -17,12 +17,13 @@ import {
   ShadingType,
   BorderStyle,
 } from 'docx';
-import { AIAssessment, KPIDataForReport, PerformanceScoreCategory } from '@/types';
+import { AIAssessment, KPIDataForReport } from '@/types';
 import { getBenchmarkScoreLabel } from './benchmark-engine';
+import { V4_COLORS, getScoreShading, getVerdictShading, applyWordReplacements } from './v4-constants';
 
 export async function generateDepartmentReport(
   dealerName: string,
-  dealerCode: string,
+  _dealerCode: string,
   reportTitle: string,
   periodStart: string,
   periodEnd: string,
@@ -44,7 +45,7 @@ export async function generateDepartmentReport(
           basedOn: 'Normal',
           next: 'Normal',
           quickFormat: true,
-          run: { size: 32, bold: true, font: 'Arial' },
+          run: { size: 32, bold: true, font: 'Arial', color: V4_COLORS.DARK_BLUE },
           paragraph: { spacing: { before: 240, after: 240 } },
         },
         {
@@ -53,7 +54,7 @@ export async function generateDepartmentReport(
           basedOn: 'Normal',
           next: 'Normal',
           quickFormat: true,
-          run: { size: 28, bold: true, font: 'Arial' },
+          run: { size: 28, bold: true, font: 'Arial', color: V4_COLORS.ACCENT_BLUE },
           paragraph: { spacing: { before: 200, after: 120 } },
         },
       ],
@@ -124,7 +125,7 @@ export async function generateDepartmentReport(
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: reportTitle, bold: true })],
+            children: [new TextRun({ text: applyWordReplacements(reportTitle), bold: true })],
           }),
 
           // Dealer Info
@@ -157,8 +158,11 @@ export async function generateDepartmentReport(
           }),
           new Paragraph({
             spacing: { after: 200 },
-            children: [new TextRun(assessment.executiveSummary)],
+            children: [new TextRun(applyWordReplacements(assessment.executiveSummary))],
           }),
+
+          // KPI Performance Summary Table (v4 Section 8.1 — before detailed analysis)
+          ...generateKPISummaryTable(kpiData, classLabel),
 
           // Page break before detailed analysis
           new Paragraph({ children: [new PageBreak()] }),
@@ -172,8 +176,31 @@ export async function generateDepartmentReport(
           // KPI Sections
           ...generateKPISections(kpiData, assessment, classLabel),
 
-          // Performance Score Assessment
-          ...generatePerformanceScoreSection(assessment),
+          // Key Strengths (v4 Section 8.1 — after detailed analysis)
+          new Paragraph({
+            heading: HeadingLevel.HEADING_1,
+            children: [new TextRun({ text: 'Key Strengths', bold: true })],
+          }),
+          ...assessment.strengths.map(
+            (s) =>
+              new Paragraph({
+                numbering: { reference: 'bullets', level: 0 },
+                children: [new TextRun(applyWordReplacements(s))],
+              })
+          ),
+
+          // Key Weaknesses
+          new Paragraph({
+            heading: HeadingLevel.HEADING_1,
+            children: [new TextRun({ text: 'Key Weaknesses', bold: true })],
+          }),
+          ...assessment.weaknesses.map(
+            (w) =>
+              new Paragraph({
+                numbering: { reference: 'bullets', level: 0 },
+                children: [new TextRun(applyWordReplacements(w))],
+              })
+          ),
 
           // Page break before recommendations
           new Paragraph({ children: [new PageBreak()] }),
@@ -190,10 +217,10 @@ export async function generateDepartmentReport(
             children: [new TextRun({ text: 'Immediate Actions (0-3 months)', bold: true })],
           }),
           ...assessment.recommendations.immediate.map(
-            (rec, i) =>
+            (rec) =>
               new Paragraph({
                 numbering: { reference: 'numbers', level: 0 },
-                children: [new TextRun(rec)],
+                children: [new TextRun(applyWordReplacements(rec))],
               })
           ),
 
@@ -206,7 +233,7 @@ export async function generateDepartmentReport(
             (rec) =>
               new Paragraph({
                 numbering: { reference: 'numbers', level: 0 },
-                children: [new TextRun(rec)],
+                children: [new TextRun(applyWordReplacements(rec))],
               })
           ),
 
@@ -219,20 +246,12 @@ export async function generateDepartmentReport(
             (rec) =>
               new Paragraph({
                 numbering: { reference: 'numbers', level: 0 },
-                children: [new TextRun(rec)],
+                children: [new TextRun(applyWordReplacements(rec))],
               })
           ),
 
-          // Critical Summary
-          new Paragraph({
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 400 },
-            children: [new TextRun({ text: 'Conclusion', bold: true })],
-          }),
-          new Paragraph({
-            spacing: { after: 400 },
-            children: [new TextRun({ text: assessment.criticalSummary, bold: true })],
-          }),
+          // Performance Score Assessment
+          ...generatePerformanceScoreSection(assessment),
 
           // Footer notes
           new Paragraph({
@@ -251,6 +270,107 @@ export async function generateDepartmentReport(
   });
 
   return await Packer.toBuffer(doc);
+}
+
+function generateKPISummaryTable(
+  kpiData: KPIDataForReport[],
+  classLabel: string = 'B-Class'
+): (Paragraph | Table)[] {
+  const elements: (Paragraph | Table)[] = [];
+
+  elements.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      children: [new TextRun({ text: 'KPI Performance Summary', bold: true })],
+    })
+  );
+
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const borders = { top: border, bottom: border, left: border, right: border };
+  const headerShading = { fill: V4_COLORS.ACCENT_BLUE, type: ShadingType.CLEAR };
+  const cellMargins = { top: 60, bottom: 60, left: 80, right: 80 };
+  const colWidths = [3200, 1500, 1300, 1300, 1300, 760];
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: ['KPI', 'CY Result', 'YoY Change', `${classLabel} %`, 'National %', 'Verdict'].map((text, i) =>
+      new TableCell({
+        borders,
+        width: { size: colWidths[i], type: WidthType.DXA },
+        shading: headerShading,
+        margins: cellMargins,
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text, bold: true, color: 'FFFFFF', size: 18 })],
+        })],
+      }),
+    ),
+  });
+
+  const dataRows = kpiData.map((kpi, idx) => {
+    const verdictLabel = kpi.benchmarkScore && kpi.benchmarkScore !== 'NA'
+      ? getBenchmarkScoreLabel(kpi.benchmarkScore as any)
+      : 'N/A';
+    const verdictShading = kpi.benchmarkScore
+      ? { fill: getVerdictShading(kpi.benchmarkScore).fill, type: ShadingType.CLEAR }
+      : undefined;
+    const rowShading = idx % 2 === 1 ? { fill: V4_COLORS.ROW_ALT, type: ShadingType.CLEAR } : undefined;
+
+    const yoyStr = kpi.yoyChangePercent != null && kpi.yoyChangePercent !== 0
+      ? `${kpi.yoyChangePercent >= 0 ? '+' : ''}${(kpi.yoyChangePercent * 100).toFixed(1)}%`
+      : '—';
+    const classPct = kpi.percentOfBClass != null
+      ? `${(kpi.percentOfBClass * 100).toFixed(0)}%`
+      : '—';
+    const natPct = kpi.percentOfNational != null
+      ? `${(kpi.percentOfNational * 100).toFixed(0)}%`
+      : '—';
+
+    return new TableRow({
+      children: [
+        new TableCell({
+          borders, width: { size: colWidths[0], type: WidthType.DXA },
+          shading: rowShading, margins: cellMargins,
+          children: [new Paragraph({ children: [new TextRun({ text: kpi.csvDescription || kpi.kpiName, size: 18 })] })],
+        }),
+        new TableCell({
+          borders, width: { size: colWidths[1], type: WidthType.DXA },
+          shading: rowShading, margins: cellMargins,
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: formatValue(kpi.currentValue, kpi.dataFormat), size: 18 })] })],
+        }),
+        new TableCell({
+          borders, width: { size: colWidths[2], type: WidthType.DXA },
+          shading: rowShading, margins: cellMargins,
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: yoyStr, size: 18 })] })],
+        }),
+        new TableCell({
+          borders, width: { size: colWidths[3], type: WidthType.DXA },
+          shading: rowShading, margins: cellMargins,
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: classPct, size: 18 })] })],
+        }),
+        new TableCell({
+          borders, width: { size: colWidths[4], type: WidthType.DXA },
+          shading: rowShading, margins: cellMargins,
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: natPct, size: 18 })] })],
+        }),
+        new TableCell({
+          borders, width: { size: colWidths[5], type: WidthType.DXA },
+          shading: verdictShading || rowShading, margins: cellMargins,
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: verdictLabel, size: 18, bold: true })] })],
+        }),
+      ],
+    });
+  });
+
+  elements.push(
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: colWidths,
+      rows: [headerRow, ...dataRows],
+    })
+  );
+
+  return elements;
 }
 
 function generateKPISections(
@@ -345,7 +465,7 @@ function generateKPISections(
         children: [
           new TextRun({ text: 'Assessment: ', bold: true }),
           ...(benchmarkLabel ? [new TextRun({ text: assessmentPrefix, bold: true })] : []),
-          new TextRun(assessmentText),
+          new TextRun(applyWordReplacements(assessmentText)),
         ],
       })
     );
@@ -368,7 +488,7 @@ function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph |
         }),
         new Paragraph({
           spacing: { after: 200 },
-          children: [new TextRun(assessment.performanceScoreAssessment)],
+          children: [new TextRun(applyWordReplacements(assessment.performanceScoreAssessment))],
         }),
       );
     }
@@ -392,11 +512,12 @@ function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph |
       }),
     );
 
-    // Score line
+    // Score line with conditional color
+    const scoreShading = getScoreShading(cat.score);
     elements.push(
       new Paragraph({
         spacing: { after: 100 },
-        children: [new TextRun({ text: `Score: ${cat.score}/100`, bold: true })],
+        children: [new TextRun({ text: `Score: ${cat.score}/100`, bold: true, color: scoreShading.textColor })],
       }),
     );
 
@@ -406,7 +527,7 @@ function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph |
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
           spacing: bulletIdx === cat.bullets.length - 1 ? { after: 200 } : undefined,
-          children: [new TextRun(bullet)],
+          children: [new TextRun(applyWordReplacements(bullet))],
         }),
       );
     });
@@ -421,11 +542,10 @@ function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph |
     }),
   );
 
-  // Build the summary table
+  // Build the summary table with v4 brand colors
   const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
   const borders = { top: border, bottom: border, left: border, right: border };
-  const headerShading = { fill: '1F4E79', type: ShadingType.CLEAR };
-  const altRowShading = { fill: 'F2F2F2', type: ShadingType.CLEAR };
+  const headerShading = { fill: V4_COLORS.DARK_BLUE, type: ShadingType.CLEAR };
   const colWidths = [3600, 1800, 1800, 2160];
   const cellMargins = { top: 80, bottom: 80, left: 120, right: 120 };
 
@@ -447,7 +567,8 @@ function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph |
 
   const dataRows = categories.map((cat, idx) => {
     const weightedScore = (cat.weight / 100 * cat.score).toFixed(2);
-    const rowShading = idx % 2 === 1 ? altRowShading : undefined;
+    const rowShading = idx % 2 === 1 ? { fill: V4_COLORS.ROW_ALT, type: ShadingType.CLEAR } : undefined;
+    const scoreShading = getScoreShading(cat.score);
 
     return new TableRow({
       children: [
@@ -471,11 +592,11 @@ function generatePerformanceScoreSection(assessment: AIAssessment): (Paragraph |
         new TableCell({
           borders,
           width: { size: colWidths[2], type: WidthType.DXA },
-          shading: rowShading,
+          shading: { fill: scoreShading.fill, type: ShadingType.CLEAR },
           margins: cellMargins,
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun(String(cat.score))],
+            children: [new TextRun({ text: String(cat.score), color: scoreShading.textColor, bold: true })],
           })],
         }),
         new TableCell({

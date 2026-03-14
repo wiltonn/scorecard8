@@ -1,12 +1,38 @@
 import { BenchmarkScore } from '@prisma/client';
+import { SIZE_KPI_CODES, getInventoryTurnsMetadata } from './v4-constants';
+
+export interface InventoryTurnsMetadata {
+  diminishingReturns: boolean;
+  recommendPAMTool: boolean;
+  toleranceGraceApplied: boolean;
+}
+
+export interface BenchmarkResult {
+  score: BenchmarkScore;
+  inventoryTurnsMetadata?: InventoryTurnsMetadata | null;
+}
 
 export function calculateBenchmarkScore(
   percentOfBClass: number,
   currentValue: number,
   rulesetType: string,
   benchmarkMin?: number | null,
-  benchmarkMax?: number | null
+  benchmarkMax?: number | null,
+  kpiCode?: string
 ): BenchmarkScore {
+  // Size KPIs get SIZE verdict — no benchmark scoring
+  if (kpiCode && SIZE_KPI_CODES.has(kpiCode)) {
+    return BenchmarkScore.SIZE;
+  }
+
+  // Inventory turns special handling
+  if (kpiCode) {
+    const invMeta = getInventoryTurnsMetadata(kpiCode, currentValue, benchmarkMin, benchmarkMax);
+    if (invMeta?.toleranceGraceApplied) {
+      return BenchmarkScore.GOOD;
+    }
+  }
+
   switch (rulesetType) {
     case 'ZZZ':
       return BenchmarkScore.NA;
@@ -51,7 +77,7 @@ function applyRulesetB(pctOfClass: number): BenchmarkScore {
 // Ruleset C - Market Position (vs Volume Class)
 // Higher % = better market position
 function applyRulesetC(pctOfClass: number): BenchmarkScore {
-  if (pctOfClass < 0.90) return BenchmarkScore.POOR;
+  if (pctOfClass < 0.90) return BenchmarkScore.SUBSTANDARD;
   if (pctOfClass < 0.95) return BenchmarkScore.WEAK;
   if (pctOfClass < 1.05) return BenchmarkScore.ACCEPTABLE;
   if (pctOfClass < 1.15) return BenchmarkScore.GOOD;
@@ -85,7 +111,7 @@ function applyRulesetF(
   if (min == null || max == null) return BenchmarkScore.NA;
   if (value < min) return BenchmarkScore.SUBSTANDARD;
   if (value < max) return BenchmarkScore.GOOD;
-  return BenchmarkScore.EXCELLENT;
+  return BenchmarkScore.GREAT;
 }
 
 // Ruleset G - Department Expense-Type (Min/Max)
@@ -96,7 +122,7 @@ function applyRulesetG(
   max?: number | null
 ): BenchmarkScore {
   if (min == null || max == null) return BenchmarkScore.NA;
-  if (value < min) return BenchmarkScore.EXCELLENT;
+  if (value < min) return BenchmarkScore.GREAT;
   if (value < max) return BenchmarkScore.GOOD;
   return BenchmarkScore.SUBSTANDARD;
 }
@@ -104,13 +130,12 @@ function applyRulesetG(
 export function getBenchmarkScoreLabel(score: BenchmarkScore): string {
   const labels: Record<BenchmarkScore, string> = {
     EXCEPTIONAL: 'Exceptional',
-    EXCELLENT: 'Excellent',
     GREAT: 'Great',
     GOOD: 'Good',
     ACCEPTABLE: 'Acceptable',
     WEAK: 'Weak',
     SUBSTANDARD: 'Substandard',
-    POOR: 'Poor',
+    SIZE: 'Size',
     NA: 'N/A',
   };
   return labels[score] || 'N/A';

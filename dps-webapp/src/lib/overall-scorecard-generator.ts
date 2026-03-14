@@ -19,6 +19,7 @@ import {
   ImageRun,
 } from 'docx';
 import { OverallScoreAssessment } from '@/types';
+import { V4_COLORS, getScoreShading, applyWordReplacements } from './v4-constants';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -63,7 +64,7 @@ export async function generateOverallScorecardReport(
           basedOn: 'Normal',
           next: 'Normal',
           quickFormat: true,
-          run: { size: 32, bold: true, font: 'Arial' },
+          run: { size: 32, bold: true, font: 'Arial', color: V4_COLORS.DARK_BLUE },
           paragraph: { spacing: { before: 240, after: 240 } },
         },
         {
@@ -72,7 +73,7 @@ export async function generateOverallScorecardReport(
           basedOn: 'Normal',
           next: 'Normal',
           quickFormat: true,
-          run: { size: 28, bold: true, font: 'Arial' },
+          run: { size: 28, bold: true, font: 'Arial', color: V4_COLORS.ACCENT_BLUE },
           paragraph: { spacing: { before: 200, after: 120 } },
         },
       ],
@@ -160,7 +161,7 @@ export async function generateOverallScorecardReport(
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 200 },
-            children: [new TextRun({ text: 'DEALER PERFORMANCE SCORECARD', size: 36, bold: true, font: 'Arial' })],
+            children: [new TextRun({ text: 'DEALER PERFORMANCE SCORECARD', size: 36, bold: true, font: 'Arial', color: V4_COLORS.DARK_BLUE })],
           }),
 
           // Dealer info
@@ -194,13 +195,13 @@ export async function generateOverallScorecardReport(
           // Introduction paragraph
           new Paragraph({
             spacing: { after: 300 },
-            children: [new TextRun(assessment.introductionParagraph)],
+            children: [new TextRun(applyWordReplacements(assessment.introductionParagraph))],
           }),
 
           // Page break before category sections
           new Paragraph({ children: [new PageBreak()] }),
 
-          // 5 Performance Category sections
+          // Performance Category sections (dynamically adapts to 4 categories)
           ...generateCategorySections(assessment),
 
           // Page break before summary table
@@ -277,11 +278,12 @@ function generateCategorySections(assessment: OverallScoreAssessment): Paragraph
       })
     );
 
-    // Score line
+    // Score line with conditional color
+    const scoreShading = getScoreShading(cat.score);
     paragraphs.push(
       new Paragraph({
         spacing: { after: 150 },
-        children: [new TextRun({ text: `Score: ${cat.score}/100`, bold: true, size: 26 })],
+        children: [new TextRun({ text: `Score: ${cat.score}/100`, bold: true, size: 26, color: scoreShading.textColor })],
       })
     );
 
@@ -298,7 +300,7 @@ function generateCategorySections(assessment: OverallScoreAssessment): Paragraph
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
-          children: [new TextRun(factor)],
+          children: [new TextRun(applyWordReplacements(factor))],
         })
       );
     });
@@ -315,7 +317,7 @@ function generateCategorySections(assessment: OverallScoreAssessment): Paragraph
     paragraphs.push(
       new Paragraph({
         spacing: { after: 300 },
-        children: [new TextRun(cat.scoringRationale)],
+        children: [new TextRun(applyWordReplacements(cat.scoringRationale))],
       })
     );
   });
@@ -333,8 +335,7 @@ function generateSummaryTable(assessment: OverallScoreAssessment): (Paragraph | 
     })
   );
 
-  const headerShading = { fill: 'D1D5DB', type: ShadingType.CLEAR };
-  const yellowShading = { fill: 'FEF08A', type: ShadingType.CLEAR };
+  const headerShading = { fill: V4_COLORS.DARK_BLUE, type: ShadingType.CLEAR };
   const colWidths = [3600, 1800, 1800, 2160];
 
   const headerRow = new TableRow({
@@ -347,25 +348,30 @@ function generateSummaryTable(assessment: OverallScoreAssessment): (Paragraph | 
         margins: cellMargins,
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text, bold: true })],
+          children: [new TextRun({ text, bold: true, color: 'FFFFFF' })],
         })],
       })
     ),
   });
 
-  const dataRows = assessment.overallCategories.map(cat => {
+  const dataRows = assessment.overallCategories.map((cat, idx) => {
     const weightedScore = (cat.weight / 100 * cat.score).toFixed(2);
+    const rowShading = idx % 2 === 1 ? { fill: V4_COLORS.ROW_ALT, type: ShadingType.CLEAR } : undefined;
+    const scoreShading = getScoreShading(cat.score);
+
     return new TableRow({
       children: [
         new TableCell({
           borders,
           width: { size: colWidths[0], type: WidthType.DXA },
+          shading: rowShading,
           margins: cellMargins,
           children: [new Paragraph({ children: [new TextRun(cat.category)] })],
         }),
         new TableCell({
           borders,
           width: { size: colWidths[1], type: WidthType.DXA },
+          shading: rowShading,
           margins: cellMargins,
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
@@ -375,15 +381,17 @@ function generateSummaryTable(assessment: OverallScoreAssessment): (Paragraph | 
         new TableCell({
           borders,
           width: { size: colWidths[2], type: WidthType.DXA },
+          shading: { fill: scoreShading.fill, type: ShadingType.CLEAR },
           margins: cellMargins,
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun(String(cat.score))],
+            children: [new TextRun({ text: String(cat.score), bold: true, color: scoreShading.textColor })],
           })],
         }),
         new TableCell({
           borders,
           width: { size: colWidths[3], type: WidthType.DXA },
+          shading: rowShading,
           margins: cellMargins,
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
@@ -394,46 +402,47 @@ function generateSummaryTable(assessment: OverallScoreAssessment): (Paragraph | 
     });
   });
 
-  // Totals row with yellow background
+  // Totals row
+  const overallScoreShading = getScoreShading(assessment.overallScore);
   const totalsRow = new TableRow({
     children: [
       new TableCell({
         borders,
         width: { size: colWidths[0], type: WidthType.DXA },
-        shading: yellowShading,
+        shading: headerShading,
         margins: cellMargins,
         children: [new Paragraph({
-          children: [new TextRun({ text: 'OVERALL WEIGHTED SCORE', bold: true })],
+          children: [new TextRun({ text: 'OVERALL WEIGHTED SCORE', bold: true, color: 'FFFFFF' })],
         })],
       }),
       new TableCell({
         borders,
         width: { size: colWidths[1], type: WidthType.DXA },
-        shading: yellowShading,
+        shading: headerShading,
         margins: cellMargins,
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: '100%', bold: true })],
+          children: [new TextRun({ text: '100%', bold: true, color: 'FFFFFF' })],
         })],
       }),
       new TableCell({
         borders,
         width: { size: colWidths[2], type: WidthType.DXA },
-        shading: yellowShading,
+        shading: headerShading,
         margins: cellMargins,
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: '-', bold: true })],
+          children: [new TextRun({ text: '-', bold: true, color: 'FFFFFF' })],
         })],
       }),
       new TableCell({
         borders,
         width: { size: colWidths[3], type: WidthType.DXA },
-        shading: yellowShading,
+        shading: { fill: overallScoreShading.fill, type: ShadingType.CLEAR },
         margins: cellMargins,
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: String(assessment.overallScore), bold: true })],
+          children: [new TextRun({ text: String(assessment.overallScore), bold: true, color: overallScoreShading.textColor })],
         })],
       }),
     ],
@@ -507,7 +516,7 @@ function generateDetailedScoreAnalysis(assessment: OverallScoreAssessment): Para
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'subbullets', level: 0 },
-          children: [new TextRun(bullet)],
+          children: [new TextRun(applyWordReplacements(bullet))],
         })
       );
     }
@@ -532,7 +541,7 @@ function generateDetailedScoreAnalysis(assessment: OverallScoreAssessment): Para
       paragraphs.push(
         new Paragraph({
           numbering: { reference: 'subbullets', level: 0 },
-          children: [new TextRun(bullet)],
+          children: [new TextRun(applyWordReplacements(bullet))],
         })
       );
     }
@@ -556,7 +565,7 @@ function generateScoreImplications(assessment: OverallScoreAssessment): Paragrap
       new Paragraph({
         numbering: { reference: 'numbers', level: 0 },
         spacing: idx === assessment.scoreImplications.length - 1 ? { after: 300 } : undefined,
-        children: [new TextRun(imp)],
+        children: [new TextRun(applyWordReplacements(imp))],
       })
     );
   });
@@ -585,7 +594,7 @@ function generatePathToImprovement(assessment: OverallScoreAssessment): (Paragra
         }),
         new Paragraph({
           spacing: { after: 150 },
-          children: [new TextRun(assessment.pathToImprovement.scenario)],
+          children: [new TextRun(applyWordReplacements(assessment.pathToImprovement.scenario))],
         }),
         // Improvement details
         ...assessment.pathToImprovement.improvements.map(imp =>
@@ -593,7 +602,7 @@ function generatePathToImprovement(assessment: OverallScoreAssessment): (Paragra
             numbering: { reference: 'bullets', level: 0 },
             children: [
               new TextRun({ text: `${imp.category}: `, bold: true }),
-              new TextRun(`${imp.fromScore} \u2192 ${imp.toScore} (+${imp.weightedGain.toFixed(1)} weighted points) \u2014 ${imp.action}`),
+              new TextRun(`${imp.fromScore} \u2192 ${imp.toScore} (+${imp.weightedGain.toFixed(1)} weighted points) \u2014 ${applyWordReplacements(imp.action)}`),
             ],
           })
         ),
@@ -622,7 +631,7 @@ function generatePathToImprovement(assessment: OverallScoreAssessment): (Paragra
       elements.push(
         new Paragraph({
           numbering: { reference: 'bullets', level: 0 },
-          children: [new TextRun(factor)],
+          children: [new TextRun(applyWordReplacements(factor))],
         })
       );
     }
@@ -648,7 +657,7 @@ function generateFinalAssessment(assessment: OverallScoreAssessment): (Paragraph
       assessment.finalAssessmentParagraphs.map((para, idx) =>
         new Paragraph({
           spacing: idx < assessment.finalAssessmentParagraphs.length - 1 ? { after: 150 } : undefined,
-          children: [new TextRun({ text: para, bold: true })],
+          children: [new TextRun({ text: applyWordReplacements(para), bold: true })],
         })
       )
     )
@@ -680,7 +689,7 @@ function generateBoardActionRequired(assessment: OverallScoreAssessment): (Parag
         ...assessment.boardActionRequired.map(action =>
           new Paragraph({
             numbering: { reference: 'bullets', level: 0 },
-            children: [new TextRun({ text: action, bold: true })],
+            children: [new TextRun({ text: applyWordReplacements(action), bold: true })],
           })
         ),
       ]

@@ -106,12 +106,19 @@ export default function Home() {
 
   const handleDownload = async (reportId: string) => {
     const response = await fetch(`/api/reports/${reportId}`, { method: 'POST' });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Download failed' }));
+      setError(err.error || 'Download failed');
+      return;
+    }
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `report-${reportId}.docx`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   };
 

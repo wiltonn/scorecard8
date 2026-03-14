@@ -176,7 +176,7 @@ async function main() {
     { kpiCode: 'GM_ADMIN_WAGES_PCT', kpiName: 'GM & Admin Wages as % of Sales', csvDescription: 'General Management & Admin. Wages as a % of Overall Dealership Sales', rulesetTypeId: 'B', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: false, displayOrder: 5 },
     { kpiCode: 'ADVERTISING_PER_UNIT', kpiName: 'Advertising $ Per Unit Sold', csvDescription: 'Advertising Dollars Per Unit Sold', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.CURRENCY, higherIsBetter: false, displayOrder: 6 },
     { kpiCode: 'ADVERTISING_PCT_SALES', kpiName: 'Advertising as % of Net Sales', csvDescription: 'Advertising as a % of Net Sales', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: false, displayOrder: 7 },
-    { kpiCode: 'OPERATING_EXPENSES_PCT', kpiName: 'Operating Expenses as % of Sales', csvDescription: 'Total Operating Expenses as % of Net Sales', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: false, displayOrder: 8 },
+    { kpiCode: 'OPERATING_EXPENSES_PCT', kpiName: 'Operating Expenses as % of Sales', csvDescription: 'Total Operating Expenses as % of Net Sales', rulesetTypeId: 'B', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: false, displayOrder: 8 },
     { kpiCode: 'NET_OPERATING_PROFIT', kpiName: 'Net Operating Profit ($)', csvDescription: 'Net Operating Profit Before Taxes and Non-Operating Income/Expenses ($)', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.CURRENCY, higherIsBetter: true, displayOrder: 9 },
     { kpiCode: 'NET_OPERATING_PROFIT_PCT', kpiName: 'Net Operating Profit % (ROS)', csvDescription: 'Net Operating Profit as a % of Net Sales (RETURN ON SALES)', rulesetTypeId: 'A', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: true, displayOrder: 10 },
     { kpiCode: 'NET_INCOME_AFTER_TAX', kpiName: 'Net Income After Taxes ($)', csvDescription: 'Net Income (Loss) After Taxes ($)', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.CURRENCY, higherIsBetter: true, displayOrder: 11 },
@@ -254,7 +254,7 @@ async function main() {
     { kpiCode: 'ABC_AL_NONMOVING_INVENTORY', kpiName: 'ABC A&L Non-Moving Inventory %', csvDescription: 'ABC A&L Non-Moving Inventory %', rulesetTypeId: 'G', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: false, benchmarkMin: 0.15, benchmarkMax: 0.20, displayOrder: 9 },
   ];
 
-  // Service KPIs (15)
+  // Service KPIs (12) — 3 unapproved KPIs removed per v4 Section 7
   const serviceKpis = [
     { kpiCode: 'SERVICE_NET_SALES', kpiName: 'Total Service Net Sales $', csvDescription: 'Total Service Net Sales $', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.CURRENCY, higherIsBetter: true, displayOrder: 1 },
     { kpiCode: 'SERVICE_GROSS_MARGIN', kpiName: 'Service Sales Gross Margin %', csvDescription: 'Service Sales Gross Margin %', rulesetTypeId: 'F', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: true, benchmarkMin: 0.60, benchmarkMax: 0.64, displayOrder: 2 },
@@ -266,11 +266,8 @@ async function main() {
     { kpiCode: 'PROFICIENCY', kpiName: 'Proficiency (Profitability)', csvDescription: 'Proficiency (Profitability)', rulesetTypeId: 'F', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: true, benchmarkMin: 0.70, benchmarkMax: 0.78, displayOrder: 8 },
     { kpiCode: 'EFFICIENCY', kpiName: 'Efficiency', csvDescription: 'Efficiency', rulesetTypeId: 'F', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: true, benchmarkMin: 0.92, benchmarkMax: 0.97, displayOrder: 9 },
     { kpiCode: 'RO_PER_TECH_PER_DAY', kpiName: 'RO per Tech per Day', csvDescription: 'Repair Orders (RO) per Tech per day', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.NUMBER, higherIsBetter: true, displayOrder: 10 },
-    { kpiCode: 'SERVICE_LABOR_GP_CP', kpiName: 'Service Labour GP CP %', csvDescription: 'Service Labour Gross profit CP %', rulesetTypeId: 'F', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: true, benchmarkMin: 0.65, benchmarkMax: 0.72, displayOrder: 11 },
-    { kpiCode: 'SERVICE_LABOR_GP_INTERNAL', kpiName: 'Service Labour GP Internal %', csvDescription: 'Service Labour Gross profit Internal PDI/Deal %', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: true, displayOrder: 12 },
-    { kpiCode: 'SERVICE_LABOR_GP_WARRANTY', kpiName: 'Service Labour GP Warranty %', csvDescription: 'Service Labour Gross profit Warranty %', rulesetTypeId: 'ZZZ', dataFormat: DataFormat.PERCENTAGE, higherIsBetter: true, displayOrder: 13 },
-    { kpiCode: 'EFFECTIVE_SELLING_RATE', kpiName: 'Effective Selling Rate', csvDescription: 'Effective Selling Rate', rulesetTypeId: 'F', dataFormat: DataFormat.CURRENCY, higherIsBetter: true, benchmarkMin: 110, benchmarkMax: 145, displayOrder: 14 },
-    { kpiCode: 'LABOR_SALES_PER_RO', kpiName: 'Labour Sales per RO', csvDescription: 'Labour Sales per RO', rulesetTypeId: 'F', dataFormat: DataFormat.CURRENCY, higherIsBetter: true, benchmarkMin: 300, benchmarkMax: 330, displayOrder: 15 },
+    { kpiCode: 'EFFECTIVE_SELLING_RATE', kpiName: 'Effective Selling Rate', csvDescription: 'Effective Selling Rate', rulesetTypeId: 'F', dataFormat: DataFormat.CURRENCY, higherIsBetter: true, benchmarkMin: 110, benchmarkMax: 145, displayOrder: 11 },
+    { kpiCode: 'LABOR_SALES_PER_RO', kpiName: 'Labour Sales per RO', csvDescription: 'Labour Sales per RO', rulesetTypeId: 'F', dataFormat: DataFormat.CURRENCY, higherIsBetter: true, benchmarkMin: 300, benchmarkMax: 330, displayOrder: 12 },
   ];
 
   // Insert all KPIs
